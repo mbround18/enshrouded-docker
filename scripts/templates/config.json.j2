@@ -1,0 +1,10 @@
+{
+    "name": "{{ server_name | default('My Enshrouded Server') }}",
+    "password": "{{ password }}",
+    "saveDirectory": "{{ save_directory | default('./savegame') }}",
+    "logDirectory": "{{ log_directory | default('./logs') }}",
+    "ip": "{{ server_ip | default('0.0.0.0') }}",
+    "gamePort": {{ game_port | default(15636) }},
+    "queryPort": {{ query_port | default(15637) }},
+    "slotCount": {{ slot_count | default(16) }}
+}

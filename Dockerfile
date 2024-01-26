@@ -3,10 +3,12 @@
 # --------------- #
 FROM steamcmd/steamcmd:ubuntu
 
+ARG WINEARCH=win64
+ARG WINE_MONO_VERSION=4.9.4
+
 ENV TZ=America/Los_Angeles
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:0
-ENV DISPLAY=:1
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN apt-get update                        \
@@ -17,7 +19,7 @@ RUN apt-get update                        \
         netcat curl wget zip unzip        \
         cron sudo gosu dos2unix  jq       \
         tzdata python3 python3-pip        \
-        lib32z1 lib32gcc-s1 lib32stdc++6  \
+#        lib32z1 lib32gcc-s1 lib32stdc++6  \
     && rm -rf /var/lib/apt/lists/*        \
     && gosu nobody true                   \
     && dos2unix
@@ -46,27 +48,13 @@ RUN apt-add-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ bionic mai
 RUN apt-get install -y --install-recommends winehq-stable winbind
 ENV WINEDEBUG=fixme-all
 
-# Setup a Wine prefix
-ENV WINEPREFIX=/root/.demo
-ENV WINEARCH=win64
-RUN winecfg
-
-# Install Mono
-RUN wget -P /mono http://dl.winehq.org/wine/wine-mono/4.9.4/wine-mono-4.9.4.msi
-RUN wineboot -u && msiexec /i /mono/wine-mono-4.9.4.msi
-RUN rm -rf /mono/wine-mono-4.9.4.msi
 
 # Install Winetricks
 RUN apt-get install -y cabextract
-RUN wget https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks
-RUN chmod +x winetricks
-RUN cp winetricks /usr/local/bin
+ADD --chmod=755 https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks /usr/local/bin/winetricks
 
 # Install Xvfb
 RUN apt-get install -y xvfb
-
-# Install Visual C++ Redistributable
-RUN #wineboot -u && xvfb-run winetricks vcrun2022
 
 # Container informaiton
 ARG GITHUB_SHA="not-set"
@@ -93,23 +81,25 @@ ENV PATH="/home/steam/.local/bin:${PATH}"
 
 # Setup a Wine prefix
 ENV WINEPREFIX=/home/steam/.wine
-ENV WINEARCH=win64
+ENV WINEARCH=${WINEARCH}
 RUN winecfg
 
-# Install .NET Framework 4.5.2
-RUN wineboot -u && winetricks -q dotnet45
+# Install Mono
+ADD https://dl.winehq.org/wine/wine-mono/${WINE_MONO_VERSION}/wine-mono-${WINE_MONO_VERSION}.msi /mono/wine-mono-${WINE_MONO_VERSION}.msi
+RUN wineboot -u && sudo msiexec /i /mono/wine-mono-${WINE_MONO_VERSION}.msi \
+    && sudo rm -rf /mono/wine-mono-${WINE_MONO_VERSION}.msi
 
 COPY --chown=${PUID}:${PGID} ./Pipfile ./Pipfile.lock /home/steam/scripts/
 
 RUN pip3 install pipenv \
     && cd /home/steam/scripts \
     && pipenv install --system --deploy --ignore-pipfile \
+    && pip3 uninstall -y pipenv \
     && sudo chown -R steam:steam /home/steam
 
 COPY --chown=${PUID}:${PGID} ./scripts /home/steam/scripts
 
 EXPOSE 15636 15637
-EXPOSE 27015/udp
 
 RUN echo "source /home/steam/scripts/utils.sh" >> /home/steam/.bashrc
 
