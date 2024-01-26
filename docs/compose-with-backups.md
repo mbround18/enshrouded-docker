@@ -13,8 +13,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      platforms:
-        - linux/amd64
     environment:
       SERVER_NAME: "My Enshrouded Server" # Optional, Name of the server
     #      PASSWORD: "" # Optional, Password for the server
@@ -32,7 +30,7 @@ services:
   backups:
     image: mbround18/backup-cron:latest
     environment:
-      - SCHEDULE=*/5 * * * *
+      - SCHEDULE=*/10 * * * *
       - INPUT_FOLDER=/home/steam/enshrouded/savegame
       - OUTPUT_FOLDER=/home/steam/backups
       - OUTPUT_USER=1000

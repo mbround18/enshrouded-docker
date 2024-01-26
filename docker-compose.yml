@@ -7,7 +7,7 @@ services:
       platforms:
         - linux/amd64
     environment:
-      SERVER_NAME: My Enshrouded Server # Optional, Name of the server
+      SERVER_NAME: "My Enshrouded Server" # Optional, Name of the server
 #      PASSWORD: "" # Optional, Password for the server
 #      SAVE_DIRECTORY: ./savegame # Optional, Save directory for the game
 #      LOG_DIRECTORY: ./logs # Optional, Log directory for the server
@@ -16,7 +16,7 @@ services:
 #      QUERY_PORT: 15637 # Optional, Query port for the server
 #      SLOT_COUNT: 16 # Optional, Number of slots for the server
     ports:
-      - "8211:8211"
-      - "27015:27015"
+      - "15636:15636"
+      - "15637:15637"
     volumes:
       - ./tmp:/home/steam/enshrouded
