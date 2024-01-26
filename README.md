@@ -6,8 +6,8 @@
 
 ## Disclaimer!
 
-The developer of this docker does not own the game and therefore cannot test.
-The docker was built using the information provided by the developer of the game.
+The developer of this docker does not own the game and therefore cannot test. 
+This project was develop upon request from friends and acquaintances.
 If you are inclined to do so a gift of this game would be
 appreciated.`https://steamcommunity.com/id/MBRound18`
 
