@@ -1,0 +1,16 @@
+name: Docker Release
+
+on: 
+  workflow_dispatch:        
+  push:
+    tags:
+      - '*'
+
+jobs:
+  Release:
+    uses: mbround18/gh-reusable/.github/workflows/docker-release.yaml@main
+    with: 
+      image: mbround18/backup-docker
+    secrets:
+      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+      
