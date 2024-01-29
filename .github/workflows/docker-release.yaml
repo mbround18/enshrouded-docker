@@ -10,7 +10,7 @@ jobs:
   Release:
     uses: mbround18/gh-reusable/.github/workflows/docker-release.yaml@main
     with: 
-      image: mbround18/backup-docker
+      image: mbround18/enshrouded-docker
     secrets:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
       
