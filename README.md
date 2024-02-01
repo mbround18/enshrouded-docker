@@ -37,8 +37,10 @@ services:
     #      QUERY_PORT: 15637 # Optional, Query port for the server
     #      SLOT_COUNT: 16 # Optional, Number of slots for the server
     ports:
-      - "15636:15636"
-      - "15637:15637"
+      - "15636:15636/udp"
+      - "15636:15636/tcp"
+      - "15637:15637/udp"
+      - "15637:15637/tcp"
     volumes:
       - ./data:/home/steam/enshrouded
 ```
