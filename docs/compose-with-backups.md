@@ -35,7 +35,7 @@ services:
       - OUTPUT_FOLDER=/home/steam/backups
       - OUTPUT_USER=1000
       - OUTPUT_GROUP=1000
-      - RETAIN_N_DAYS=5
+      - KEEP_N_DAYS=5
     volumes:
       - ./data:/home/steam/enshrouded
       - ./backups:/home/steam/backups
