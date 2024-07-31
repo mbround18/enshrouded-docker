@@ -8,7 +8,7 @@ services:
         - linux/amd64
     environment:
       SERVER_NAME: "My Enshrouded Server" # Optional, Name of the server
-#      PASSWORD: "" # Optional, Password for the server
+      PASSWORD: "IM SECURE" # Optional, Password for the server
 #      SAVE_DIRECTORY: ./savegame # Optional, Save directory for the game
 #      LOG_DIRECTORY: ./logs # Optional, Log directory for the server
 #      SERVER_IP: 0.0.0.0 # Optional, IP address for the server
@@ -22,3 +22,18 @@ services:
       - "15637:15637/tcp"
     volumes:
       - ./tmp:/home/steam/enshrouded
+
+  # this is for development, and can be removed from your copy
+  linter:
+    image: mbround18/enshrouded-docker:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: python-tools
+      platforms:
+        - linux/amd64
+    volumes:
+      - ./:/app
+    command: ["python3", "-m", "black", "."]
+    profiles:
+      - donotstart
