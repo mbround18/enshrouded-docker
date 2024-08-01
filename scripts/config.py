@@ -21,6 +21,12 @@ def get_args():
         "--password", help="Password for the server", default=os.getenv("PASSWORD", "")
     )
     parser.add_argument(
+        "--admin-password",
+        help="Admin password for the server",
+        default=os.getenv("ADMIN_PASSWORD", ""),
+    )
+
+    parser.add_argument(
         "--save-directory",
         help="Save directory for the game",
         default=os.getenv("SAVE_DIRECTORY", "./savegame"),
@@ -74,11 +80,31 @@ def render_template(template, args_dict):
 
 def merge_configs(base, update):
     logging.info("Merging existing and new configurations")
+    if not isinstance(update, dict):
+        logging.critical(f"Update is not a dictionary: {update}")
+        return base
+
     for key, value in update.items():
-        if isinstance(value, dict) and key in base and isinstance(base[key], dict):
-            merge_configs(base[key], value)
-        elif isinstance(value, list) and key in base and isinstance(base[key], list):
-            base[key].extend(value)
+        if key == "userGroups" and isinstance(value, list):
+            if key not in base:
+                base[key] = value
+            else:
+                # Create a map of existing userGroups by name
+                existing_groups = {group["name"]: group for group in base[key]}
+                for item in value:
+                    if item["name"] in existing_groups:
+                        existing_group = existing_groups[item["name"]]
+                        existing_group_index = base[key].index(existing_group)
+                        base[key][existing_group_index] = merge_configs(
+                            existing_group, item
+                        )
+                    else:
+                        base[key].append(item)
+        elif isinstance(value, dict):
+            if key not in base:
+                base[key] = value
+            else:
+                base[key] = merge_configs(base.get(key, {}), value)
         else:
             base[key] = value
     return base
@@ -87,18 +113,13 @@ def merge_configs(base, update):
 def main():
     args = get_args()
     args_dict = {key: value for key, value in vars(args).items() if value is not None}
-    logging.info(
-        f"Options dict (password omitted): {{key: value for key, value in args_dict.items() if key != "
-        f"'password'}}"
-    )
-
     script_path = os.path.dirname(os.path.realpath(__file__))
     template_path = os.environ.get(
         "CONFIG_TEMPLATE_PATH", os.path.join(script_path, "templates/config.ini.j2")
     )
     template = load_template(template_path)
     rendered_config = render_template(template, args_dict)
-
+    rendered_config = json.loads(rendered_config)
     if args.output:
         if os.path.exists(args.output):
             logging.info(f"Existing configuration found at {args.output}")
@@ -107,16 +128,15 @@ def main():
             else:
                 with open(args.output, "r") as file:
                     existing_content = json.load(file)
-            merged_config = merge_configs(existing_content, args_dict)
-            logging.info(f"Merged configuration: {merged_config}")
+            merged_config = merge_configs(existing_content, rendered_config)
             with open(args.output, "w") as f:
                 json.dump(merged_config, f, indent=2)
         else:
             logging.info(
                 f"No existing configuration found. Creating new one at {args.output}"
             )
-            with open(args.output, "w") as file:
-                file.write(rendered_config)
+            with open(args.output, "w") as f:
+                json.dump(rendered_config, f, indent=2)
     else:
         print(rendered_config)
 

@@ -1,171 +1,114 @@
-# --------------- #
-# -- Version Args -- #
-# --------------- #
-ARG PYTHON_VERSION=3.12-slim
-ARG WINE_MONO_VERSION=4.9.4
-# --------------- #
-# -- Python Development Tools -- #
-# --------------- #
-FROM python:${PYTHON_VERSION} AS python-tools
+# Stage 1: Base setup
+FROM ubuntu:24.04 AS base
+ARG DEBIAN_FRONTEND=noninteractive
+ENV USER=root HOME=/root
 
-WORKDIR /app
+# Set up steam
+RUN /bin/bash -o pipefail -c ' \
+    echo steam steam/question select "I AGREE" | debconf-set-selections && \
+    echo steam steam/license note "" | debconf-set-selections && \
+    dpkg --add-architecture i386 && \
+    apt-get update -y && \
+    apt-get install -y --no-install-recommends ca-certificates locales steamcmd && \
+    rm -rf /var/lib/apt/lists/* && \
+    locale-gen en_US.UTF-8 && \
+    ln -s /usr/games/steamcmd /usr/bin/steamcmd && \
+    steamcmd +quit && \
+    mkdir -p $HOME/.steam && \
+    ln -s $HOME/.local/share/Steam/steamcmd/linux32 $HOME/.steam/sdk32 && \
+    ln -s $HOME/.local/share/Steam/steamcmd/linux64 $HOME/.steam/sdk64 && \
+    ln -s $HOME/.steam/sdk32/steamclient.so $HOME/.steam/sdk32/steamservice.so && \
+    ln -s $HOME/.steam/sdk64/steamclient.so $HOME/.steam/sdk64/steamservice.so'
 
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-    --mount=target=/var/cache/apt,type=cache,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    binutils \
-    && rm -rf /var/lib/apt/lists/*
+ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en
 
-RUN groupadd -r appuser && useradd -m -r -g appuser appuser \
-    && chown -R appuser:appuser /home/appuser \
-    && chown -R appuser:appuser /app
-
-COPY ./Pipfile ./Pipfile.lock /app/
-
-RUN python -m pip install pipenv black \
-    && python -m pipenv --python "$(which python)" install -d --ignore-pipfile
-
-
-# --------------- #
-# -- Python Binary Build Stage -- #
-# --------------- #
-FROM python:${PYTHON_VERSION} AS python-build
-
-WORKDIR /app
-
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-    --mount=target=/var/cache/apt,type=cache,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    binutils \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN groupadd -r appuser && useradd -m -r -g appuser appuser \
-    && chown -R appuser:appuser /home/appuser \
-    && chown -R appuser:appuser /app
-
-USER appuser
-
-ENV PATH="/home/appuser/.local/bin:${PATH}"
-
-# Install pipenv and compile the Python application to a binary
-COPY ./Pipfile ./Pipfile.lock /app/
-RUN python -m pip install pipenv pyinstaller jinja2 \
-    && python -m pipenv --python "$(which python)" install --deploy --ignore-pipfile
-
-COPY . /app
-
-RUN python -m pipenv run pyinstaller --onefile scripts/config.py
-
-
-# --------------- #
-# -- Steam CMD -- #
-# --------------- #
-FROM steamcmd/steamcmd:ubuntu
-
+# Stage 2: Wine setup
+FROM base AS wine
 ARG WINEARCH=win64
-ARG WINE_MONO_VERSION
-
+ARG WINE_MONO_VERSION=4.9.4
 ENV TZ=America/Los_Angeles
-ENV PYTHONUNBUFFERED=1
-ENV DISPLAY=:0
-ENV PUID=1000
-ENV PGID=1000
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+ENV PYTHONUNBUFFERED=1 DISPLAY=:0 PUID=1000 PGID=1000
 
-# Check who is 1000 and remove them if they arent steam
-RUN if [ "$(getent passwd $PUID | cut -d: -f1)" != "steam" ]; then userdel $(getent passwd $PUID | cut -d: -f1); fi
+# Install dependencies
+RUN /bin/bash -o pipefail -c ' \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone && \
+    if [ "$(getent passwd $PUID | cut -d: -f1)" != "steam" ]; then userdel $(getent passwd $PUID | cut -d: -f1); fi && \
+    apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y -qq build-essential htop net-tools nano gcc g++ gdb netcat-traditional curl wget zip unzip cron sudo gosu dos2unix jq tzdata && \
+    rm -rf /var/lib/apt/lists/* && \
+    gosu nobody true && \
+    dos2unix && \
+    addgroup --system steam && \
+    adduser --system --home /home/steam --shell /bin/bash steam && \
+    usermod -aG steam steam && \
+    chmod ugo+rw /tmp/dumps'
 
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-    --mount=target=/var/cache/apt,type=cache,sharing=locked \
-    apt-get update                        \
-    && apt-get upgrade -y                 \
-    && apt-get install -y -qq             \
-        build-essential                   \
-        htop net-tools nano gcc g++ gdb   \
-        netcat-traditional curl wget zip unzip        \
-        cron sudo gosu dos2unix  jq      \
-        tzdata                            \
-    && rm -rf /var/lib/apt/lists/*        \
-    && gosu nobody true                   \
-    && dos2unix
-
-RUN addgroup --system steam     \
-    && adduser --system         \
-      --home /home/steam        \
-      --shell /bin/bash         \
-      steam                     \
-    && usermod -aG steam steam  \
-    && chmod ugo+rw /tmp/dumps
-
-# Add 32-bit architecture
-
-
-# Install Wine
+# Wine installation
 ADD https://dl.winehq.org/wine-builds/winehq.key /tmp/winehq.key
-RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-    --mount=target=/var/cache/apt,type=cache,sharing=locked \
-    dpkg --add-architecture i386 \
-    && apt-get update \
-    && apt-get install -y software-properties-common gnupg2 \
-    && apt-key add /tmp/winehq.key \
-    && apt-add-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ bionic main' \
-    && apt-get install -y --install-recommends \
-    winehq-stable \
-    winbind \
-    cabextract \
-    && rm -rf /var/lib/apt/lists/*
+RUN /bin/bash -o pipefail -c ' \
+    dpkg --add-architecture i386 && \
+    apt-get update && \
+    apt-get install -y software-properties-common gnupg2 && \
+    apt-key add /tmp/winehq.key && \
+    apt-add-repository "deb https://dl.winehq.org/wine-builds/ubuntu/ bionic main" && \
+    apt-get install -y --install-recommends winehq-stable winbind cabextract && \
+    rm -rf /var/lib/apt/lists/*'
 
 ENV WINEDEBUG=fixme-all
 
-# Install Winetricks
+# Add winetricks
 ADD --chmod=755 https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks /usr/local/bin/winetricks
 
-# Container informaiton
-ARG GITHUB_SHA="not-set"
-ARG GITHUB_REF="not-set"
-ARG GITHUB_REPOSITORY="not-set"
+# Stage 3: Python setup
+FROM wine AS python
+ARG WINEARCH=win64
+ARG WINE_MONO_VERSION=4.9.4
 
+# Install Python, pip, and pyinstaller in a virtual environment
+RUN /bin/bash -o pipefail -c ' \
+    apt-get update && \
+    apt-get install -y python3 python3-venv && \
+    python3 -m venv /opt/venv && \
+    . /opt/venv/bin/activate && \
+    pip install --upgrade pip && \
+    pip install pyinstaller jinja2 && \
+    deactivate && \
+    rm -rf /var/lib/apt/lists/*'
+
+WORKDIR /app
+
+COPY . /app
+RUN . /opt/venv/bin/activate && pyinstaller --onefile scripts/config.py
+
+# Stage 4: Final stage
+FROM python AS final
+ARG GITHUB_SHA=not-set
+ARG GITHUB_REF=not-set
+ARG GITHUB_REPOSITORY=not-set
 ENV ENSHROUDED_CONFIG_DIR=/usr/local/share/enshrouded-config
 ENV CONFIG_TEMPLATE_PATH=/home/steam/scripts/templates/config.json.j2
 
-RUN usermod -u ${PUID} steam                                \
-    && groupmod -g ${PGID} steam                            \
-    && echo "steam ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers \
-    && mkdir -p "${ENSHROUDED_CONFIG_DIR}"
+COPY --from=python --chmod=steam /app/dist/ "${ENSHROUDED_CONFIG_DIR}"
 
+
+# Copy entrypoint script with correct permissions
+COPY --chmod=0755 --chown=steam:steam scripts/ /home/steam/scripts/
+COPY --chmod=0755 --chown=steam:steam ./scripts/templates/config.json.j2 $CONFIG_TEMPLATE_PATH
+
+RUN /bin/bash -o pipefail -c ' \
+    usermod -u ${PUID} steam && \
+    groupmod -g ${PGID} steam && \
+    echo "steam ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
+    mkdir -p "${ENSHROUDED_CONFIG_DIR}"'
+
+# Switch to steam user
 USER steam
-
 WORKDIR /home/steam
+ENV HOME=/home/steam USER=steam
+ENV LD_LIBRARY_PATH=/home/steam/.steam/sdk32:/home/steam/.steam/sdk64:/home/steam/.steam/sdk32
+ENV PATH=/home/steam/.local/bin:/usr/local/share/enshrouded-config:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-ENV HOME=/home/steam
-ENV USER=steam
-ENV LD_LIBRARY_PATH="/home/steam/.steam/sdk32:${LD_LIBRARY_PATH}"
-ENV LD_LIBRARY_PATH="/home/steam/.steam/sdk64:${LD_LIBRARY_PATH}"
-ENV PATH="/home/steam/.local/bin:${ENSHROUDED_CONFIG_DIR}:${PATH}"
-
-# Setup a Wine prefix
-ENV WINEPREFIX=/home/steam/.wine
-ENV WINEARCH=${WINEARCH}
-RUN winecfg
-
-# Install Mono
-ADD https://dl.winehq.org/wine/wine-mono/${WINE_MONO_VERSION}/wine-mono-${WINE_MONO_VERSION}.msi /mono/wine-mono-${WINE_MONO_VERSION}.msi
-RUN wineboot -u && sudo msiexec /i /mono/wine-mono-${WINE_MONO_VERSION}.msi \
-    && sudo rm -rf /mono/wine-mono-${WINE_MONO_VERSION}.msi \
-    && mkdir -p "${HOME}/.local/bin" \
-    && sudo rm -rf /var/lib/apt/lists/* \
-    && sudo chown -R steam:steam "${ENSHROUDED_CONFIG_DIR}"
-
-COPY --from=python-build --chmod=steam:$PGID /app/dist/ "${ENSHROUDED_CONFIG_DIR}"
-
-RUN sudo chown -R steam:steam /home/steam
-
-COPY --chown=${PUID}:${PGID} ./scripts /home/steam/scripts
-
-EXPOSE 15636 15637
-
-RUN echo "source /home/steam/scripts/utils.sh" >> /home/steam/.bashrc
-
-ENTRYPOINT ["/bin/bash","/home/steam/scripts/entrypoint.sh"]
+# Set entrypoint
+ENTRYPOINT ["/home/steam/scripts/entrypoint.sh"]

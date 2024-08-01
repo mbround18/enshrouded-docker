@@ -23,10 +23,10 @@ function enshrouded_configure() {
 
 function enshrouded_launch() {
   echo "launching enshrouded"
-#  enshrouded_install
-#
-#  cd ~/enshrouded || exit 1
-#
-#  enshrouded_configure
-#  wine64 /home/steam/enshrouded/enshrouded_server.exe
+  enshrouded_install
+
+  cd ~/enshrouded || exit 1
+
+  enshrouded_configure
+  wine64 /home/steam/enshrouded/enshrouded_server.exe
 }
