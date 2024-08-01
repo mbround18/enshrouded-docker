@@ -1,3 +1,10 @@
-tmp/
-docs/
+
+
 .idea/
+.github
+README.md
+Makefile
+docker-compose*
+enshrouded.iml
+/tmp
+/docs

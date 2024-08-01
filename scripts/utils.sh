@@ -13,7 +13,12 @@ function enshrouded_update() {
 
 function enshrouded_configure() {
     echo "configuring enshrouded"
-    python3 /home/steam/scripts/config.py --output /home/steam/enshrouded/enshrouded_server.json
+    if [ ! -d "${ENSHROUDED_CONFIG_DIR}" ]; then
+        echo -e "\nERROR: ${ENSHROUDED_CONFIG_DIR} does not exist. "
+        exit 1
+    fi
+
+    "${ENSHROUDED_CONFIG_DIR}/config" --output /home/steam/enshrouded/enshrouded_server.json
 }
 
 function enshrouded_launch() {

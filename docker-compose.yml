@@ -8,7 +8,8 @@ services:
         - linux/amd64
     environment:
       SERVER_NAME: "My Enshrouded Server" # Optional, Name of the server
-#      PASSWORD: "" # Optional, Password for the server
+      PASSWORD: "securepassword" # Optional, Password for the server
+#      ADMIN_PASSWORD: "adminpassword" # Optional, Admin password for the server
 #      SAVE_DIRECTORY: ./savegame # Optional, Save directory for the game
 #      LOG_DIRECTORY: ./logs # Optional, Log directory for the server
 #      SERVER_IP: 0.0.0.0 # Optional, IP address for the server
