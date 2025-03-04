@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euxo pipefail
+
 if [ ! -f ~/enshrouded ]; then
     mkdir -p ~/enshrouded && cd ~/enshrouded || exit 1
 fi
@@ -16,8 +18,11 @@ mkdir -p $HOME/.steam \
  && ln -s $HOME/.steam/sdk32/steamclient.so $HOME/.steam/sdk32/steamservice.so \
  && ln -s $HOME/.steam/sdk64/steamclient.so $HOME/.steam/sdk64/steamservice.so
 
-source /home/steam/scripts/utils.sh
+#source /home/steam/scripts/utils.sh
 
-enshrouded_configure
+enshrouded install
 
-enshrouded_launch
+enshrouded start
+
+tail -f logs/server.log
+

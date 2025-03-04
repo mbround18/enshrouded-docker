@@ -16,6 +16,8 @@ services:
 #      GAME_PORT: 15636 # Optional, Game port for the server
 #      QUERY_PORT: 15637 # Optional, Query port for the server
 #      SLOT_COUNT: 16 # Optional, Number of slots for the server
+      AUTO_UPDATE: "1"
+      AUTO_UPDATE_SCHEDULE: "*/3 * * * *"
     ports:
       - "15636:15636/udp"
       - "15636:15636/tcp"
