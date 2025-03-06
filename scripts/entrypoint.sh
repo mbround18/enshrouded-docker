@@ -1,28 +1,17 @@
 #!/usr/bin/env bash
-
 set -euxo pipefail
 
-if [ ! -f ~/enshrouded ]; then
-    mkdir -p ~/enshrouded && cd ~/enshrouded || exit 1
-fi
+# Start virtual display
+Xvfb :1 -screen 0 1024x768x16 &
 
-# Copy Root Steam Files to Steam User
-sudo cp -R /root/.local /home/steam/.local
-sudo chown -R steam:steam /home/steam/.local
-sudo chown -R steam:steam ~/enshrouded
+# Ensure Wine environment is set up
+export WINEPREFIX="/home/steam/.wine"
+export DISPLAY=:1
 
-# Link SteamCMD Files to Steam User
-mkdir -p $HOME/.steam \
- && ln -s $HOME/.local/share/Steam/steamcmd/linux32 $HOME/.steam/sdk32 \
- && ln -s $HOME/.local/share/Steam/steamcmd/linux64 $HOME/.steam/sdk64 \
- && ln -s $HOME/.steam/sdk32/steamclient.so $HOME/.steam/sdk32/steamservice.so \
- && ln -s $HOME/.steam/sdk64/steamclient.so $HOME/.steam/sdk64/steamservice.so
-
-#source /home/steam/scripts/utils.sh
+rm -rf /home/steam/.cache
 
 enshrouded install
 
 enshrouded start
 
-tail -f logs/server.log
-
+enshrouded monitor
