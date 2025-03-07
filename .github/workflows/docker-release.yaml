@@ -1,11 +1,16 @@
 name: Docker Release
 
-on: 
-  workflow_dispatch:        
+on:
+  workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
       - '*'
-
+  pull_request:
+    branches:
+      - main
+      
 jobs:
   Release:
     uses: mbround18/gh-reusable/.github/workflows/docker-release.yaml@main
