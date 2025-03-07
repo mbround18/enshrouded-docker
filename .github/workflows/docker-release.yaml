@@ -2,8 +2,6 @@ name: Docker Release
 
 on:
   workflow_dispatch:
-    inputs:
-      # Define any inputs if necessary
   push:
     branches:
       - main
