@@ -1,16 +1,22 @@
 name: Docker Release
 
-on: 
-  workflow_dispatch:        
+on:
+  workflow_dispatch:
+    inputs:
+      # Define any inputs if necessary
   push:
+    branches:
+      - main
     tags:
       - '*'
+  pull_request:
+    branches:
+      - main
 
 jobs:
   Release:
-    uses: mbround18/gh-reusable/.github/workflows/docker-release.yaml@main
-    with: 
+    uses: mbround18/gh-reusable/.github/workflows/docker-release.yaml@mbround18-patch-2
+    with:
       image: mbround18/enshrouded-docker
     secrets:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
-      
