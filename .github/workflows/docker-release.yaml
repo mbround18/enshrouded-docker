@@ -9,12 +9,11 @@ on:
     branches:
       - main
     types: [opened, synchronize, reopened, labeled]
-      
+
 jobs:
   Release:
-    uses: mbround18/gh-reusable/.github/workflows/docker-release.yaml@main
-    with: 
+    uses: mbround18/gh-reusable/.github/workflows/docker-release.yaml@mbround18-patch-2
+    with:
       image: mbround18/enshrouded-docker
     secrets:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
-      
