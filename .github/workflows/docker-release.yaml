@@ -12,7 +12,7 @@ on:
 
 jobs:
   Release:
-    uses: mbround18/gh-reusable/.github/workflows/docker-release.yaml@mbround18-patch-2
+    uses: mbround18/gh-reusable/.github/workflows/docker-release.yaml@v0.0.4
     with:
       image: mbround18/enshrouded-docker
     secrets:
