@@ -9,6 +9,8 @@ rm -rf /home/steam/.cache
 mkdir -p chome/steam/enshrouded
 mkdir -p chome/steam/enshrouded/logs
 
+steamcmd +quit
+
 enshrouded install
 
 enshrouded start
