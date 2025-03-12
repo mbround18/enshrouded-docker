@@ -62,17 +62,10 @@ function stop_enshrouded {
     exit 0
 }
 
-trap stop_enshrouded SIGINT SIGTERM ERR EXIT
-
 # ───────────────────────────────────────────────────────────
 # Install (if necessary)
 # ───────────────────────────────────────────────────────────
-if ! enshrouded status &>/dev/null; then
-    echo "🚀 Enshrouded is not installed. Installing now..."
-    enshrouded install
-else
-    echo "✅ Enshrouded is already installed."
-fi
+enshrouded install
 
 # ───────────────────────────────────────────────────────────
 # Start the Enshrouded Server
@@ -84,4 +77,5 @@ enshrouded start
 # Monitor the Server
 # ───────────────────────────────────────────────────────────
 echo "📡 Monitoring Enshrouded server logs..."
+trap stop_enshrouded SIGINT SIGTERM ERR EXIT
 enshrouded monitor
