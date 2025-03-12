@@ -34,7 +34,7 @@ echo "🔍 Checking permissions for /home/steam/enshrouded..."
 ls -ld /home/steam/enshrouded
 
 echo "🔄 Updating ownership to match user..."
-sudo chown -R $(id -u):$(id -g) /home/steam/enshrouded
+sudo chown -R "$(id -u):$(id -g)" /home/steam/enshrouded 2>/dev/null
 
 # ───────────────────────────────────────────────────────────
 # Setup and Initialization
