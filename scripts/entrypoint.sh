@@ -62,7 +62,7 @@ function stop_enshrouded {
     exit 0
 }
 
-trap stop_enshrouded SIGINT SIGTERM
+trap stop_enshrouded SIGINT SIGTERM ERR EXIT
 
 # ───────────────────────────────────────────────────────────
 # Install (if necessary)
