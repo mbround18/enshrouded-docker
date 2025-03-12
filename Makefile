@@ -1,5 +1,7 @@
 .PHONY: docker-build docker-dev
 
+export COMPOSE_BAKE=true
+
 docker-build:
 	@docker compose build
 

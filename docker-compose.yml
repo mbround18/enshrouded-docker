@@ -1,10 +1,6 @@
 services:
   enshrouded:
     image: mbround18/enshrouded-docker:latest
-    security_opt:
-      - seccomp=unconfined
-    cap_add:
-      - SYS_ADMIN
     build:
       context: .
       dockerfile: Dockerfile
