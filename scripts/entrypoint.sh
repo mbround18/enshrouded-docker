@@ -77,5 +77,5 @@ enshrouded start
 # Monitor the Server
 # ───────────────────────────────────────────────────────────
 echo "📡 Monitoring Enshrouded server logs..."
-trap stop_enshrouded SIGINT SIGTERM ERR EXIT
+trap stop_enshrouded SIGINT SIGTERM EXIT
 enshrouded monitor
