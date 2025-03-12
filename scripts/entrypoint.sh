@@ -59,7 +59,6 @@ function stop_enshrouded {
     echo "🛑 Caught shutdown signal! Stopping Enshrouded server..."
     enshrouded stop
     echo "✅ Enshrouded server stopped. Exiting."
-    exit 0
 }
 
 # ───────────────────────────────────────────────────────────
@@ -77,5 +76,7 @@ enshrouded start
 # Monitor the Server
 # ───────────────────────────────────────────────────────────
 echo "📡 Monitoring Enshrouded server logs..."
-trap stop_enshrouded SIGINT SIGTERM EXIT
+trap stop_enshrouded SIGTERM  # Catch SIGTERM 
+trap stop_enshrouded SIGINT   # Also catch Ctrl+C (useful for local debugging)
+
 enshrouded monitor
