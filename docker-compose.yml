@@ -9,14 +9,13 @@ services:
     environment:
       TZ: "America/Los_Angeles"
       NAME: "Demo Enshrouded Server"
-      WEBHOOK_URL: "https://your-webhook.url"
-      AUTO_UPDATE: "true"
+      AUTO_UPDATE: "1"
       AUTO_UPDATE_SCHEDULE: "0 3 * * *"
-      SCHEDULED_RESTART: "true"
+      SCHEDULED_RESTART: "1"
       SCHEDULED_RESTART_SCHEDULE: "0 4 * * *"
-      STOP_DELAY: 10
-      SET_GROUP_USER_PASSWORD: "securepassword"
-      RUST_LOG: "debug"
+      SET_GROUP_ADMIN_PASSWORD: "super-secure-password"
+      SET_GROUP_GUEST_PASSWORD: "secure-password"
+      RUST_LOG: "info"
     ports:
       - "15636:15636/udp"
       - "15636:15636/tcp"
