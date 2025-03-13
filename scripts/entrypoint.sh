@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 # ───────────────────────────────────────────────────────────
 # Welcome to the Enshruded Docker container
@@ -53,15 +53,6 @@ echo "🔧 Running SteamCMD to ensure dependencies are up to date..."
 steamcmd +quit
 
 # ───────────────────────────────────────────────────────────
-# Trap Function for Graceful Shutdown
-# ───────────────────────────────────────────────────────────
-function stop_enshrouded {
-    echo "🛑 Caught shutdown signal! Stopping Enshrouded server..."
-    enshrouded stop
-    echo "✅ Enshrouded server stopped. Exiting."
-}
-
-# ───────────────────────────────────────────────────────────
 # Install (if necessary)
 # ───────────────────────────────────────────────────────────
 enshrouded install
@@ -76,7 +67,12 @@ enshrouded start
 # Monitor the Server
 # ───────────────────────────────────────────────────────────
 echo "📡 Monitoring Enshrouded server logs..."
-trap stop_enshrouded SIGTERM  # Catch SIGTERM 
-trap stop_enshrouded SIGINT   # Also catch Ctrl+C (useful for local debugging)
+# Start the monitor in the background
+enshrouded monitor &
+MONITOR_PID=$!
 
-enshrouded monitor
+# Set trap to run cleanup and kill the monitor process if needed
+trap 'enshrouded stop; kill $MONITOR_PID' SIGTERM SIGINT ERR
+
+# Wait for the monitor process to exit
+wait $MONITOR_PID
