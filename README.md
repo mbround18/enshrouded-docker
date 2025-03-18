@@ -45,6 +45,7 @@ These variables control the overall server configuration:
 | `AUTO_UPDATE_SCHEDULE`       | Cron schedule for auto-update                                                                                                                                                                                   | `0 3 * * *`            | `30 2 * * *`                 |
 | `SCHEDULED_RESTART`          | Flag to enable scheduled restarts                                                                                                                                                                               | _(disabled)_           | `true`                       |
 | `SCHEDULED_RESTART_SCHEDULE` | Cron schedule for automatic server restarts                                                                                                                                                                     | `0 4 * * *`            | `15 4 * * *`                 |
+| `UPDATE_ON_START`            | Flag to enable server update on startup                                                                                                                                                                         | _(disabled)_           | `true`                       |
 
 ### Game Settings
 

@@ -53,7 +53,7 @@ echo "🔧 Running SteamCMD to ensure dependencies are up to date..."
 steamcmd +quit
 
 # ───────────────────────────────────────────────────────────
-# Install (if necessary)
+# Install/Update (if necessary)
 # ───────────────────────────────────────────────────────────
 # if UPDATE_ON_START is true, else check for /home/steam/enshrouded/enshrouded_server.exe if true or if file doesnt exist run
 if [ "$UPDATE_ON_START" = "true" ] || [ ! -f "/home/steam/enshrouded/enshrouded_server.exe" ]; then
