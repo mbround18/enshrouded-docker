@@ -55,7 +55,11 @@ steamcmd +quit
 # ───────────────────────────────────────────────────────────
 # Install (if necessary)
 # ───────────────────────────────────────────────────────────
-enshrouded install
+# if UPDATE_ON_START is true, else check for /home/steam/enshrouded/enshrouded_server.exe if true or if file doesnt exist run
+if [ "$UPDATE_ON_START" = "true" ] || [ ! -f "/home/steam/enshrouded/enshrouded_server.exe" ]; then
+    echo "⬇️ Installing/Updating Enshrouded server..."
+    enshrouded install
+fi
 
 # ───────────────────────────────────────────────────────────
 # Start the Enshrouded Server

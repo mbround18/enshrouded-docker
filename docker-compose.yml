@@ -1,6 +1,7 @@
 services:
   enshrouded:
     image: mbround18/enshrouded-docker:latest
+    stop_grace_period: 60s
     build:
       context: .
       dockerfile: Dockerfile
