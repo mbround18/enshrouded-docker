@@ -85,7 +85,7 @@ ENV HOME=/home/steam USER=steam
 ENV LD_LIBRARY_PATH=/home/steam/.steam/sdk32:/home/steam/.steam/sdk64:/home/steam/.steam/sdk32
 ENV PATH=/home/steam/.local/bin:/usr/local/share/enshrouded-config:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-COPY --from=mbround18/gsm-reference:sha-7ec6fa9 /app/enshrouded /usr/local/bin/enshrouded
+COPY --from=mbround18/gsm-reference:enshrouded-0.1.1 /app/enshrouded /usr/local/bin/enshrouded
 
 # Set entrypoint
 ENTRYPOINT ["/home/steam/scripts/entrypoint.sh"]
