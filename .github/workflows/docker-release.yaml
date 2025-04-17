@@ -1,19 +1,25 @@
 name: Docker Release
 
 on:
-  workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
-      - "*"
+      - "v*"
   pull_request:
     branches:
       - main
-    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
 
 jobs:
-  Release:
-    uses: mbround18/gh-reusable/.github/workflows/docker-release.yaml@v0.0.4
+  docker-release:
+    uses: mbround18/gh-reusable/.github/workflows/docker-release.yaml@main
     with:
-      image: mbround18/enshrouded-docker
-    secrets:
-      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+      image: "mbround18/enshrouded-docker"
+    secrets: inherit
+
+  tagger:
+    needs: docker-release
+    if: ${{ github.ref == 'refs/heads/main' }}
+    uses: mbround18/gh-reusable/.github/workflows/tagger.yaml@main
+    secrets: inherit
