@@ -2,18 +2,18 @@ version: "3.8"
 services:
   enshrouded:
     image: mbround18/enshrouded-docker:latest
+    stop_grace_period: 60s
     build:
       context: .
       dockerfile: Dockerfile
     environment:
-      SERVER_NAME: "My Enshrouded Server" # Optional, Name of the server
-    #      PASSWORD: "" # Optional, Password for the server
-    #      SAVE_DIRECTORY: ./savegame # Optional, Save directory for the game
-    #      LOG_DIRECTORY: ./logs # Optional, Log directory for the server
-    #      SERVER_IP: 0.0.0.0 # Optional, IP address for the server
-    #      GAME_PORT: 15636 # Optional, Game port for the server
-    #      QUERY_PORT: 15637 # Optional, Query port for the server
-    #      SLOT_COUNT: 16 # Optional, Number of slots for the server
+      TZ: "America/Los_Angeles"
+      NAME: "Demo Enshrouded Server"
+      WEBHOOK_URL: "https://your-webhook.url"
+      AUTO_UPDATE: "true"
+      AUTO_UPDATE_SCHEDULE: "0 3 * * *"
+      SCHEDULED_RESTART: "true"
+      SCHEDULED_RESTART_SCHEDULE: "0 4 * * *"
     ports:
       - "15636:15636/udp"
       - "15636:15636/tcp"

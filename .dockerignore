@@ -1,8 +1,7 @@
-
-
 .idea/
 .github
-README.md
+*.md
+*.yaml
 Makefile
 docker-compose*
 enshrouded.iml

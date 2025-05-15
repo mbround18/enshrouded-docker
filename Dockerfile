@@ -61,41 +61,16 @@ ENV WINEDEBUG=fixme-all
 # Add winetricks
 ADD --chmod=755 https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks /usr/local/bin/winetricks
 
-# Stage 3: Python setup
-FROM wine AS python
-ARG WINEARCH=win64
-ARG WINE_MONO_VERSION=4.9.4
-
-# Install Python, pip, and pyinstaller in a virtual environment
-RUN /bin/bash -o pipefail -c ' \
-    apt-get update && \
-    apt-get install -y python3 python3-venv && \
-    python3 -m venv /opt/venv && \
-    . /opt/venv/bin/activate && \
-    pip install --upgrade pip && \
-    pip install pyinstaller jinja2 && \
-    deactivate && \
-    rm -rf /var/lib/apt/lists/*'
-
-WORKDIR /app
-
-COPY . /app
-RUN . /opt/venv/bin/activate && pyinstaller --onefile scripts/config.py
 
 # Stage 4: Final stage
-FROM python AS final
+FROM wine AS final
 ARG GITHUB_SHA=not-set
 ARG GITHUB_REF=not-set
 ARG GITHUB_REPOSITORY=not-set
 ENV ENSHROUDED_CONFIG_DIR=/usr/local/share/enshrouded-config
-ENV CONFIG_TEMPLATE_PATH=/home/steam/scripts/templates/config.json.j2
-
-COPY --from=python --chmod=steam /app/dist/ "${ENSHROUDED_CONFIG_DIR}"
-
 
 # Copy entrypoint script with correct permissions
 COPY --chmod=0755 --chown=steam:steam scripts/ /home/steam/scripts/
-COPY --chmod=0755 --chown=steam:steam ./scripts/templates/config.json.j2 $CONFIG_TEMPLATE_PATH
 
 RUN /bin/bash -o pipefail -c ' \
     usermod -u ${PUID} steam && \
@@ -109,6 +84,8 @@ WORKDIR /home/steam
 ENV HOME=/home/steam USER=steam
 ENV LD_LIBRARY_PATH=/home/steam/.steam/sdk32:/home/steam/.steam/sdk64:/home/steam/.steam/sdk32
 ENV PATH=/home/steam/.local/bin:/usr/local/share/enshrouded-config:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+COPY --from=mbround18/gsm-reference:enshrouded-0.1.3 /app/enshrouded /usr/local/bin/enshrouded
 
 # Set entrypoint
 ENTRYPOINT ["/home/steam/scripts/entrypoint.sh"]

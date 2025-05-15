@@ -1,7 +1,7 @@
 # Compose with Backups
 
 > Seeing this error `ValueError: Input folder does not exist or is not a directory.` is normal if you are starting a new server for the first time.
-> It just means no saves have been recorded yet. 
+> It just means no saves have been recorded yet.
 
 [Click here to see all options for the backup cron](https://github.com/mbround18/backup-docker)
 
