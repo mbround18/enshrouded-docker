@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -Eeuo pipefail
+set -Euo pipefail
 
 # ───────────────────────────────────────────────────────────
 # Welcome to the Enshruded Docker container
@@ -55,8 +55,7 @@ steamcmd +quit
 # ───────────────────────────────────────────────────────────
 # Install/Update (if necessary)
 # ───────────────────────────────────────────────────────────
-# if UPDATE_ON_START is true, else check for /home/steam/enshrouded/enshrouded_server.exe if true or if file doesnt exist run
-if [ "$UPDATE_ON_START" = "true" ] || [ ! -f "/home/steam/enshrouded/enshrouded_server.exe" ]; then
+if [ "${UPDATE_ON_START:-"false"}" = "true" ] || [ ! -f "/home/steam/enshrouded/enshrouded_server.exe" ]; then
     echo "⬇️ Installing/Updating Enshrouded server..."
     enshrouded install
 fi
