@@ -23,9 +23,3 @@ services:
       - "15636:15636/tcp"
       - "15637:15637/udp"
       - "15637:15637/tcp"
-    volumes:
-      - ./data:/home/steam/enshrouded
-      - type: bind
-        source: /home/mbruno/development/rust/game-server-management/target/debug/enshrouded
-        target: /usr/local/bin/enshrouded
-        read_only: true
