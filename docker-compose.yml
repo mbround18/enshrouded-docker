@@ -16,11 +16,10 @@ services:
       SCHEDULED_RESTART_SCHEDULE: "0 4 * * *"
       SET_GROUP_ADMIN_PASSWORD: "super-secure-password"
       SET_GROUP_GUEST_PASSWORD: "secure-password"
-      RUST_LOG: "info"
+      # PLAYER_BODY_HEAT_FACTOR: "0.5"
+      RUST_LOG: "debug"
     ports:
       - "15636:15636/udp"
       - "15636:15636/tcp"
       - "15637:15637/udp"
       - "15637:15637/tcp"
-    volumes:
-      - ./data:/home/steam/enshrouded

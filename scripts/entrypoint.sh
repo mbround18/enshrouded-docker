@@ -3,7 +3,7 @@ set -Euo pipefail
 
 # ───────────────────────────────────────────────────────────
 # Welcome to the Enshruded Docker container
-# If you are modifying this script please check contributors guide! :) 
+# If you are modifying this script please check contributors guide! :)
 # ───────────────────────────────────────────────────────────
 
 echo "──────────────────────────────────────────────────────────"
@@ -25,13 +25,14 @@ echo "👥 Groups: $(id -Gn)"
 
 # Directory checks
 if [ ! -d "/home/steam/enshrouded" ]; then
-    echo "⚠️ Directory /home/steam/enshrouded does not exist. Creating..."
-    mkdir -p /home/steam/enshrouded/logs
+  echo "⚠️ Directory /home/steam/enshrouded does not exist. Creating..."
+  mkdir -p /home/steam/enshrouded/logs
 fi
 
 # Permission check
 echo "🔍 Checking permissions for /home/steam/enshrouded..."
 ls -ld /home/steam/enshrouded
+chmod +x /usr/local/bin/enshrouded
 
 echo "🔄 Updating ownership to match user..."
 sudo chown -R "$(id -u):$(id -g)" /home/steam/enshrouded 2>/dev/null || true
@@ -56,8 +57,8 @@ steamcmd +quit
 # Install/Update (if necessary)
 # ───────────────────────────────────────────────────────────
 if [ "${UPDATE_ON_START:-"false"}" = "true" ] || [ ! -f "/home/steam/enshrouded/enshrouded_server.exe" ]; then
-    echo "⬇️ Installing/Updating Enshrouded server..."
-    enshrouded install
+  echo "⬇️ Installing/Updating Enshrouded server..."
+  enshrouded install
 fi
 
 # ───────────────────────────────────────────────────────────
