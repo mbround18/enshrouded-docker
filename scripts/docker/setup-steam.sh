@@ -1,5 +1,4 @@
-#!/usr/bin/env bash
-
+#!/bin/bash
 set -euo pipefail
 
 setup_steam_repository() {
@@ -9,19 +8,19 @@ setup_steam_repository() {
 }
 
 install_steam_packages() {
-  apt-get update -y
-  apt-get install -y --no-install-recommends \
+  apt-get update --quiet --quiet
+  apt-get install --yes --no-install-recommends \
     ca-certificates \
     locales \
     steamcmd \
     jq \
     curl \
-    wget \
     zip \
     unzip \
     sudo \
     dos2unix
-  rm -rf /var/lib/apt/lists/*
+  apt-get autoclean --yes --quiet
+  rm --recursive --force /var/lib/apt/lists/*
 }
 
 setup_locale() {
@@ -29,19 +28,19 @@ setup_locale() {
 }
 
 setup_steamcmd() {
-  ln -s /usr/games/steamcmd /usr/bin/steamcmd
+  ln --symbolic /usr/games/steamcmd /usr/local/bin/steamcmd
   steamcmd +quit
 }
 
 setup_steam_directories() {
-  mkdir -p "$HOME/.steam"
-  ln -s "$HOME/.local/share/Steam/steamcmd/linux32" "$HOME/.steam/sdk32"
-  ln -s "$HOME/.local/share/Steam/steamcmd/linux64" "$HOME/.steam/sdk64"
+  mkdir --parents "$HOME/.steam"
+  ln --symbolic "$HOME/.local/share/Steam/steamcmd/linux32" "$HOME/.steam/sdk32"
+  ln --symbolic "$HOME/.local/share/Steam/steamcmd/linux64" "$HOME/.steam/sdk64"
 }
 
 setup_steam_libraries() {
-  ln -s "$HOME/.steam/sdk32/steamclient.so" "$HOME/.steam/sdk32/steamservice.so"
-  ln -s "$HOME/.steam/sdk64/steamclient.so" "$HOME/.steam/sdk64/steamservice.so"
+  ln --symbolic "$HOME/.steam/sdk32/steamclient.so" "$HOME/.steam/sdk32/steamservice.so"
+  ln --symbolic "$HOME/.steam/sdk64/steamclient.so" "$HOME/.steam/sdk64/steamservice.so"
 }
 
 main() {
