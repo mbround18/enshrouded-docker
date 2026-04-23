@@ -1,5 +1,5 @@
 # Stage 1: Base setup
-FROM ubuntu:24.04 AS base
+FROM ubuntu:26.04 AS base
 ARG DEBIAN_FRONTEND=noninteractive
 ENV USER=root HOME=/root
 
@@ -12,7 +12,6 @@ ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en
 # Stage 2: Wine setup
 FROM base AS wine
 ARG WINEARCH=win64
-ARG WINE_MONO_VERSION=4.9.4
 ENV TZ=America/Los_Angeles
 ENV PYTHONUNBUFFERED=1 DISPLAY=:0 PUID=1000 PGID=1000
 
@@ -20,15 +19,9 @@ ENV PYTHONUNBUFFERED=1 DISPLAY=:0 PUID=1000 PGID=1000
 RUN --mount=type=bind,source=./scripts/docker/install-dependencies.sh,target=/tmp/install-dependencies.sh \
     /bin/bash /tmp/install-dependencies.sh
 
-ENV WINEDEBUG=fixme-all
-
 # Wine installation
 RUN --mount=type=bind,source=./scripts/docker/install-wine.sh,target=/tmp/install-wine.sh \
     /bin/bash /tmp/install-wine.sh
-
-# Add winetricks
-ADD --chmod=755 https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks /usr/local/bin/winetricks
-
 
 # Stage 4: Final stage
 FROM wine AS final
