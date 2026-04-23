@@ -1,9 +1,9 @@
-#!/usr/bin/env bash
-
+#!/bin/bash
 set -euo pipefail
 
 setup_timezone() {
-  ln -snf "/usr/share/zoneinfo/${TZ:-UTC}" /etc/localtime
+  ln --symbolic --no-dereference --force \
+    "/usr/share/zoneinfo/${TZ:-UTC}" /etc/localtime
   echo "${TZ:-UTC}" >/etc/timezone
 }
 
@@ -18,9 +18,10 @@ cleanup_existing_user() {
 install_packages() {
   apt-get update --quiet --quiet
   apt-get install --yes --quiet --no-install-recommends \
+    curl \
     tzdata
   apt-get clean --yes --quiet
-  rm -rf /var/lib/apt/lists/*
+  rm --recursive --force /var/lib/apt/lists/*
 }
 
 setup_steam_user() {
@@ -30,10 +31,9 @@ setup_steam_user() {
 }
 
 setup_permissions() {
-  mkdir -p /tmp/dumps /tmp/runtime-steam /tmp/.X11-unix
+  mkdir --parents /tmp/dumps /tmp/runtime-steam /tmp/.X11-unix
   chmod ugo+rw /tmp/dumps
   chmod 700 /tmp/runtime-steam
-  chmod 1777 /tmp/.X11-unix
   chown steam:steam /tmp/runtime-steam
 }
 
