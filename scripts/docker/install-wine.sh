@@ -1,34 +1,31 @@
-#!/usr/bin/env bash
-
+#!/bin/bash
 set -euo pipefail
 
-install_wine() {
-  # Download Wine repository key
-  wget -O /tmp/winehq.key https://dl.winehq.org/wine-builds/winehq.key
+# Download Wine repository key
+curl --silent --fail --show-error --location \
+  'https://dl.winehq.org/wine-builds/winehq.key' \
+  --output /etc/apt/keyrings/winehq.asc
 
-  # Add i386 architecture and update package lists
-  dpkg --add-architecture i386
-  apt-get update
+# Add Wine repository
+. /etc/os-release
 
-  # Install required packages for repository management
-  apt-get install -y software-properties-common gnupg2
+# Set up WineHQ repository
+cat > /etc/apt/sources.list.d/winehq.sources <<EOS
+Types: deb
+URIs: https://dl.winehq.org/wine-builds/$ID/
+Suites: $VERSION_CODENAME
+Components: main
+Signed-By: /etc/apt/keyrings/winehq.asc
+EOS
 
-  # Add Wine repository key
-  apt-key add /tmp/winehq.key
+# Add i386 architecture and update package lists
+# We still need i386 arch for now
+dpkg --add-architecture i386
+apt-get update --quiet --quiet
 
-  # Add Wine repository
-  apt-add-repository "deb https://dl.winehq.org/wine-builds/ubuntu/ bionic main"
+# Install Wine and related packages
+apt-get install --yes --install-recommends winehq-stable
 
-  # Install Wine and related packages
-  apt-get install -y --install-recommends winehq-stable winbind cabextract
-
-  # Clean up
-  rm -rf /var/lib/apt/lists/*
-  rm -f /tmp/winehq.key
-}
-
-main() {
-  install_wine
-}
-
-main "$@"
+# Clean up
+apt-get clean --yes --quiet
+rm --recursive --force /var/lib/apt/lists/*
