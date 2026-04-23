@@ -16,43 +16,10 @@ cleanup_existing_user() {
 }
 
 install_packages() {
-  apt-get update
-  apt-get install -y -qq --no-install-recommends \
-    build-essential \
-    htop \
-    net-tools \
-    nano \
-    gcc \
-    g++ \
-    gdb \
-    netcat-traditional \
-    cron \
-    tzdata \
-    xvfb \
-    dbus \
-    libglib2.0-0 \
-    libpulse0 \
-    libdbus-1-3 \
-    libfontconfig1 \
-    libfreetype6 \
-    libxext6 \
-    libxfixes3 \
-    libxi6 \
-    libxrandr2 \
-    libxrender1 \
-    libxcb1 \
-    libxcb-xfixes0 \
-    libxcb-render0 \
-    libxcomposite1 \
-    libxcursor1 \
-    libxdamage1 \
-    libxinerama1 \
-    libnss3 \
-    libasound2-dev \
-    libx11-xcb1 \
-    x11-xserver-utils \
-    x11-utils \
-    xauth
+  apt-get update --quiet --quiet
+  apt-get install --yes --quiet --no-install-recommends \
+    tzdata
+  apt-get clean --yes --quiet
   rm -rf /var/lib/apt/lists/*
 }
 
