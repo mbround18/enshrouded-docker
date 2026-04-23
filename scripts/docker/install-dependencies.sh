@@ -56,10 +56,6 @@ install_packages() {
   rm -rf /var/lib/apt/lists/*
 }
 
-validate_gosu() {
-  gosu nobody true
-}
-
 setup_steam_user() {
   addgroup --system steam
   adduser --system --home /home/steam --shell /bin/bash steam
@@ -78,7 +74,6 @@ main() {
   setup_timezone
   cleanup_existing_user
   install_packages
-  validate_gosu
   setup_steam_user
   setup_permissions
 }

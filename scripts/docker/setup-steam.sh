@@ -20,7 +20,6 @@ install_steam_packages() {
     zip \
     unzip \
     sudo \
-    gosu \
     dos2unix
   rm -rf /var/lib/apt/lists/*
 }
