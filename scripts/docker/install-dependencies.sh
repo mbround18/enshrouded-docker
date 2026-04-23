@@ -24,9 +24,9 @@ install_packages() {
 }
 
 setup_steam_user() {
-  addgroup --system steam
-  adduser --system --home /home/steam --shell /bin/bash steam
-  usermod -aG steam steam
+  groupadd --gid "${PGID:-1000}" steam
+  useradd --uid "${PUID:-1000}" --gid "${PGID:-1000}" \
+    --home /home/steam --shell /bin/bash steam
 }
 
 setup_permissions() {
