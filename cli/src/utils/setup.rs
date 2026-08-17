@@ -16,6 +16,10 @@ pub fn initialize_runtime(game_root: &Path) -> Result<(), Box<dyn std::error::Er
     // Set up WINE environment
     setup_wine_environment()?;
 
+    // Link the steam user's own steamclient.so into ~/.steam/sdk32|64 (see
+    // setup_steam_client_symlinks for why this can't be done at image build time)
+    setup_steam_client_symlinks()?;
+
     // Install Proton if not already installed
     setup_proton()?;
 
@@ -56,6 +60,51 @@ fn setup_wine_environment() -> Result<(), Box<dyn std::error::Error>> {
             std::env::set_var("DISPLAY", ":1");
         }
         debug!("Set DISPLAY=:1");
+    }
+
+    Ok(())
+}
+
+/// Link `~/.steam/sdk32`/`sdk64` (and the `steamservice.so` alias inside them) to
+/// where steamcmd actually puts its files under this user's `$HOME`.
+///
+/// `scripts/docker/setup-steam.sh` already does this exact linking during the
+/// Docker build, but that RUN instruction executes as root with `$HOME=/root`
+/// (before `USER steam` switches), so it only ever creates
+/// `/root/.steam/sdk32|64` — a directory the runtime `steam` user can't even
+/// read (root's home is 700). `LD_LIBRARY_PATH` points at
+/// `/home/steam/.steam/sdk32|64`, which as a result never exists, so anything
+/// that dlopen()s steamclient.so via it (Steamworks-integrated games running
+/// under Wine/Proton) fails or hangs. Symlinks can dangle until steamcmd
+/// actually populates the target on first install, so this is safe to do
+/// unconditionally and early.
+fn setup_steam_client_symlinks() -> Result<(), Box<dyn std::error::Error>> {
+    let home = PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/home/steam".to_string()));
+    let steamcmd_dir = home.join(".local/share/Steam/steamcmd");
+
+    for arch_dir in ["linux32", "linux64"] {
+        let sdk_link = home.join(".steam").join(match arch_dir {
+            "linux32" => "sdk32",
+            _ => "sdk64",
+        });
+        create_directory_if_needed(&home.join(".steam"))?;
+
+        // Use symlink_metadata (lstat), not exists()/is_dir(): those follow the
+        // symlink and report false while it's still dangling (before steamcmd has
+        // populated the target), which would make this re-create it every run.
+        if fs::symlink_metadata(&sdk_link).is_err() {
+            debug!(
+                "Linking {:?} -> {:?}",
+                sdk_link,
+                steamcmd_dir.join(arch_dir)
+            );
+            std::os::unix::fs::symlink(steamcmd_dir.join(arch_dir), &sdk_link)?;
+        }
+
+        let steamservice_link = sdk_link.join("steamservice.so");
+        if fs::symlink_metadata(&steamservice_link).is_err() {
+            std::os::unix::fs::symlink("steamclient.so", &steamservice_link).ok();
+        }
     }
 
     Ok(())
@@ -273,6 +322,13 @@ pub fn spawn_server(
     config: &gsm_instance::InstanceConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
     create_directory_if_needed(&config.log_dir())?;
+
+    // Retry: setup_steam_client_symlinks() also runs during `setup`, but at that
+    // point steamcmd hasn't necessarily populated ~/.local/share/Steam/steamcmd
+    // yet, so the steamservice.so link (created inside the sdk32/64 symlink
+    // target) can silently fail. By the time we're spawning the server, install
+    // has definitely run.
+    setup_steam_client_symlinks()?;
 
     let pid_file = config.pid_file();
     if pid_file.exists() {
