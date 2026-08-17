@@ -138,11 +138,11 @@ fn fetch_latest_proton_ge_release() -> Result<GitHubRelease, Box<dyn std::error:
 
 /// Download and extract Proton-GE to the installation path
 fn download_and_extract_proton_ge(release: &GitHubRelease, install_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    // Find the tar.gz asset
+    // Find the x86_64 tar.gz asset (releases also ship an incompatible aarch64 build)
     let asset = release.assets
         .iter()
-        .find(|a| a.name.ends_with(".tar.gz"))
-        .ok_or("No tar.gz asset found in release")?;
+        .find(|a| a.name.ends_with("-x86_64.tar.gz"))
+        .ok_or("No x86_64 tar.gz asset found in release")?;
     
     info!("Downloading {}", asset.name);
     debug!("URL: {}", asset.browser_download_url);
@@ -301,7 +301,12 @@ fn make_executable(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     if Path::new(path).exists() {
         debug!("Making {} executable", path);
         let perms = fs::Permissions::from_mode(0o755);
-        fs::set_permissions(path, perms)?;
+        // The binary is already executable from the Docker build (COPY --chmod / cargo build
+        // output) but may be owned by root while we're running as the unprivileged steam user,
+        // so this chmod is best-effort: lacking permission to change it further isn't fatal.
+        if let Err(e) = fs::set_permissions(path, perms) {
+            debug!("Could not update permissions on {}: {}", path, e);
+        }
     } else {
         error!("File not found: {}", path);
     }

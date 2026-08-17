@@ -28,14 +28,14 @@ WORKDIR /tmp/proton-download
 # Fetch latest Proton-GE release and download the tar.gz
 RUN curl -sL https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest \
     -H "User-Agent: enshrouded-docker" | \
-    jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url' | head -1 > url.txt && \
+    jq -r '.assets[] | select(.name | endswith("-x86_64.tar.gz")) | .browser_download_url' | head -1 > url.txt && \
     url=$(cat url.txt) && \
     if [ -z "$url" ]; then echo "Failed to get download URL"; exit 1; fi && \
     curl -L -o proton.tar.gz "$url" && \
     tar -xzf proton.tar.gz && \
     mkdir -p /opt/proton && \
-    mv GE-Proton* /opt/proton/proton && \
-    chmod +x /opt/proton/proton/proton
+    mv GE-Proton*/* /opt/proton/ && \
+    chmod +x /opt/proton/proton
 
 # Stage 2: Base setup - Common for both Wine and Proton runtimes
 FROM ubuntu:${UBUNTU_VERSION} AS base

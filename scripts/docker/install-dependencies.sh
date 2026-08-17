@@ -28,6 +28,7 @@ install_packages() {
     netcat-traditional \
     cron \
     tzdata \
+    python3 \
     xvfb \
     dbus \
     libglib2.0-0 \
