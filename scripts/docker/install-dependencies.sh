@@ -31,6 +31,8 @@ install_packages() {
     python3 \
     xvfb \
     dbus \
+    libvulkan1 \
+    mesa-vulkan-drivers \
     libglib2.0-0 \
     libpulse0 \
     libdbus-1-3 \
