@@ -21,6 +21,7 @@ Welcome to the ultimate Enshrouded Server toolkit! This guide details how to dep
 
 - **Docker**
 - **Docker Compose**
+- **Linux kernel 6.14+ with the `ntsync` driver loaded** (`lsmod | grep ntsync`, device present at `/dev/ntsync`) — recommended for the `proton`/`wine` services. Without it, Wine/Proton fall back to `fsync` for NT synchronization primitives, which is markedly less stable during the server's multithreaded startup and can crash before Steamworks finishes initializing. If your host doesn't have it, remove the `devices:` block from `docker-compose.yml`.
 
 ---
 

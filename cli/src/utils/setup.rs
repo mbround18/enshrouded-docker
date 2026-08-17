@@ -282,6 +282,12 @@ pub fn spawn_server(
     let stdout = fs::File::create(config.stdout())?;
     let stderr = fs::File::create(config.stderr())?;
 
+    // `runinprefix` skips Proton's Steam-client-directory bridging setup
+    // (setup_steam_dir_drive()), which lsteamclient (Proton's Linux Steamworks
+    // bridge) needs — without it the game hard-crashes with an assertion failure
+    // in steamclient_main.c. `run` is slower to reach the game's own init (it also
+    // launches Proton's Xalia accessibility helper first) but is the mode that
+    // actually wires up Steamworks correctly.
     let child = std::process::Command::new(proton_path)
         .arg("run")
         .arg(server_exe)

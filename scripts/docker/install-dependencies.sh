@@ -38,6 +38,7 @@ install_packages() {
     libdbus-1-3 \
     libfontconfig1 \
     libfreetype6 \
+    libfreetype6:i386 \
     libxext6 \
     libxfixes3 \
     libxi6 \

@@ -23,6 +23,13 @@ services:
       SET_GROUP_GUEST_PASSWORD: "secure-password"
       # PLAYER_BODY_HEAT_FACTOR: "0.5"
       RUST_LOG: "debug"
+    # Requires a host kernel with the ntsync driver (Linux 6.14+, module loaded:
+    # `lsmod | grep ntsync`, device present: `ls /dev/ntsync`). Without this,
+    # Wine/Proton fall back to fsync for NT synchronization primitives, which is
+    # markedly less stable under the heavy multithreaded init the server does on
+    # startup. If your host doesn't have it, remove this block.
+    devices:
+      - /dev/ntsync:/dev/ntsync
     ports:
       - "15636:15636/udp"
       - "15636:15636/tcp"
@@ -52,6 +59,13 @@ services:
       SET_GROUP_GUEST_PASSWORD: "secure-password"
       # PLAYER_BODY_HEAT_FACTOR: "0.5"
       RUST_LOG: "debug"
+    # Requires a host kernel with the ntsync driver (Linux 6.14+, module loaded:
+    # `lsmod | grep ntsync`, device present: `ls /dev/ntsync`). Without this,
+    # Wine/Proton fall back to fsync for NT synchronization primitives, which is
+    # markedly less stable under the heavy multithreaded init the server does on
+    # startup. If your host doesn't have it, remove this block.
+    devices:
+      - /dev/ntsync:/dev/ntsync
     ports:
       - "15636:15636/udp"
       - "15636:15636/tcp"
