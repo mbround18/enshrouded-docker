@@ -69,6 +69,23 @@ async fn main() {
         debug!("Config load or creation completed.");
     }
 
+    // Launches the server via Proton. Used by every code path that starts the
+    // server (not just the `start` subcommand) so that `restart`, the
+    // scheduled-restart job, and the post-update restart all agree on how to
+    // launch it — `Instance::start()`/`restart()` from gsm-instance only know
+    // how to launch via wine64 directly, which isn't on PATH on the
+    // proton-runtime image.
+    fn start_server_via_proton(config: &InstanceConfig) -> Result<(), Box<dyn std::error::Error>> {
+        setup_configuration(&config.working_dir);
+
+        utils::setup::setup_proton_env()?;
+        utils::setup::create_steam_appid(&config.working_dir, 2278520)?;
+
+        let proton_path = utils::setup::get_proton_executable()?;
+        let server_exe = config.working_dir.join("enshrouded_server.exe");
+        utils::setup::spawn_server(&proton_path, &server_exe, config)
+    }
+
     // Set the TZ environment variable to your desired timezone.
     #[cfg(unix)]
     unsafe {
@@ -122,36 +139,9 @@ async fn main() {
         Commands::Start => {
             info!("Starting server with Proton...");
             let inst = instance.lock().await;
-            setup_configuration(&inst.config.working_dir);
-            
-            // Setup Proton environment
-            if let Err(e) = utils::setup::setup_proton_env() {
-                error!("Failed to setup Proton environment: {}", e);
+            if let Err(e) = start_server_via_proton(&inst.config) {
+                error!("Failed to start server: {}", e);
                 exit(1);
-            }
-            
-            // Create steam_appid.txt (Enshrouded AppID: 2278520)
-            if let Err(e) = utils::setup::create_steam_appid(&inst.config.working_dir, 2278520) {
-                error!("Failed to create steam_appid.txt: {}", e);
-                exit(1);
-            }
-            
-            // Get proton executable and run the server in the background
-            match utils::setup::get_proton_executable() {
-                Ok(proton_path) => {
-                    let server_exe = inst.config.working_dir.join("enshrouded_server.exe");
-
-                    if let Err(e) =
-                        utils::setup::spawn_server(&proton_path, &server_exe, &inst.config)
-                    {
-                        error!("Failed to start server: {}", e);
-                        exit(1);
-                    }
-                }
-                Err(e) => {
-                    error!("Proton not available: {}", e);
-                    exit(1);
-                }
             }
         }
         Commands::Monitor {
@@ -226,7 +216,7 @@ async fn main() {
                                 return;
                             }
                             info!("Restarting server...");
-                            if let Err(e) = inst.start() {
+                            if let Err(e) = start_server_via_proton(&inst.config) {
                                 error!("Failed to start server: {}", e);
                             }
                         } else {
@@ -249,7 +239,11 @@ async fn main() {
                     tokio::spawn(async move {
                         let inst = instance_clone_inner.lock().await;
                         warn!("Restarting server...");
-                        if let Err(e) = inst.restart() {
+                        if let Err(e) = inst.stop() {
+                            error!("Failed to stop server: {}", e);
+                            return;
+                        }
+                        if let Err(e) = start_server_via_proton(&inst.config) {
                             error!("Failed to restart server: {}", e);
                         }
                     });
@@ -300,7 +294,9 @@ async fn main() {
             warn!("Restarting Enshrouded server...");
             debug!("Acquiring lock to restart the server...");
             let inst = instance.lock().await;
-            if let Err(e) = inst.restart() {
+            if let Err(e) = inst.stop() {
+                error!("Failed to stop server: {}", e);
+            } else if let Err(e) = start_server_via_proton(&inst.config) {
                 error!("Failed to restart server: {}", e);
             } else {
                 debug!("Server restarted successfully.");
