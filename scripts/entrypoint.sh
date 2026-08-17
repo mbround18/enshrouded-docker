@@ -7,6 +7,15 @@ set -Euo pipefail
 # ───────────────────────────────────────────────────────────
 
 # ───────────────────────────────────────────────────────────
+# Fix ownership of mounted volumes
+# ───────────────────────────────────────────────────────────
+# A freshly bind-mounted host directory (e.g. docker-compose.yml's
+# ./tmp/proton, ./tmp/wine) is created by the Docker daemon as root before the
+# container ever starts, which the unprivileged steam user can't write into.
+echo "🔧 Fixing ownership of /home/steam/enshrouded..."
+sudo chown -R steam:steam /home/steam/enshrouded 2>/dev/null || true
+
+# ───────────────────────────────────────────────────────────
 # Start a virtual display
 # ───────────────────────────────────────────────────────────
 # The Windows server binary is launched under Wine/Proton and needs a display

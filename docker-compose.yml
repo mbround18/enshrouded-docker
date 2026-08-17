@@ -30,9 +30,12 @@ services:
     # startup. If your host doesn't have it, remove this block.
     devices:
       - /dev/ntsync:/dev/ntsync
+    volumes:
+      - ./tmp/wine:/home/steam/enshrouded
     ports:
-      - "15636:15636/udp"
       - "15636:15636/tcp"
+      - "15636:15636/udp"
+      - "15637:15637/tcp"
       - "15637:15637/udp"
 
   proton:
@@ -66,8 +69,10 @@ services:
     # startup. If your host doesn't have it, remove this block.
     devices:
       - /dev/ntsync:/dev/ntsync
+    volumes:
+      - ./tmp/proton:/home/steam/enshrouded
     ports:
-      - "15636:15636/udp"
       - "15636:15636/tcp"
-      - "15637:15637/udp"
+      - "15636:15636/udp"
       - "15637:15637/tcp"
+      - "15637:15637/udp"
