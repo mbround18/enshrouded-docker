@@ -1,4 +1,5 @@
 .idea/
+.git/
 .github
 *.md
 *.yaml
@@ -7,3 +8,5 @@ docker-compose*
 enshrouded.iml
 /tmp
 /docs
+/target
+/.buildx-cache

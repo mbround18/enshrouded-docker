@@ -20,6 +20,8 @@ RUN cargo build --release
 
 # Stage 1: Proton Download - Pre-fetch Proton-GE for rootless runtime
 FROM ubuntu:${UBUNTU_VERSION} AS proton-download
+# Ensure a failed curl fails the pipeline instead of feeding jq an empty/partial response.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl gzip tar jq && \
     rm -rf /var/lib/apt/lists/*

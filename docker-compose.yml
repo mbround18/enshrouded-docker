@@ -8,6 +8,10 @@ services:
       platforms:
         - linux/amd64
       target: wine-runtime
+      cache_from:
+        - type=local,src=.buildx-cache
+      cache_to:
+        - type=local,dest=.buildx-cache,mode=max
     environment:
       TZ: "America/Los_Angeles"
       NAME: "Demo Enshrouded Server"
@@ -33,6 +37,10 @@ services:
       platforms:
         - linux/amd64
       target: proton-runtime
+      cache_from:
+        - type=local,src=.buildx-cache
+      cache_to:
+        - type=local,dest=.buildx-cache,mode=max
     environment:
       TZ: "America/Los_Angeles"
       NAME: "Demo Enshrouded Server"

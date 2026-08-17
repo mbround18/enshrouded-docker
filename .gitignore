@@ -175,3 +175,6 @@ cython_debug/
 # already existing elements were commented out
 
 #/target
+
+# Local BuildKit cache (docker-compose.yml build.cache_from/cache_to)
+/.buildx-cache
