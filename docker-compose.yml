@@ -1,12 +1,38 @@
 services:
-  enshrouded:
-    image: mbround18/enshrouded-docker:latest
+  wine:
+    image: mbround18/enshrouded-docker:wine-latest
     stop_grace_period: 60s
     build:
       context: .
       dockerfile: Dockerfile
       platforms:
         - linux/amd64
+      target: wine-runtime
+    environment:
+      TZ: "America/Los_Angeles"
+      NAME: "Demo Enshrouded Server"
+      AUTO_UPDATE: "1"
+      AUTO_UPDATE_SCHEDULE: "0 3 * * *"
+      SCHEDULED_RESTART: "1"
+      SCHEDULED_RESTART_SCHEDULE: "0 4 * * *"
+      SET_GROUP_ADMIN_PASSWORD: "super-secure-password"
+      SET_GROUP_GUEST_PASSWORD: "secure-password"
+      # PLAYER_BODY_HEAT_FACTOR: "0.5"
+      RUST_LOG: "debug"
+    ports:
+      - "15636:15636/udp"
+      - "15636:15636/tcp"
+      - "15637:15637/udp"
+
+  proton:
+    image: mbround18/enshrouded-docker:proton-latest
+    stop_grace_period: 60s
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+      target: proton-runtime
     environment:
       TZ: "America/Los_Angeles"
       NAME: "Demo Enshrouded Server"

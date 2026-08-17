@@ -2,56 +2,12 @@
 set -Euo pipefail
 
 # ───────────────────────────────────────────────────────────
-# Welcome to the Enshruded Docker container
+# Welcome to the Enshrouded Docker container
 # If you are modifying this script please check contributors guide! :)
 # ───────────────────────────────────────────────────────────
 
-echo "──────────────────────────────────────────────────────────"
-echo "🚀 Enshrouded Docker - $(date)"
-echo "──────────────────────────────────────────────────────────"
-
-# System Info
-echo "🔹 Hostname: $(hostname)"
-echo "🔹 Kernel: $(uname -r)"
-echo "🔹 OS: $(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '\"')"
-echo "🔹 CPU: $(lscpu | grep 'Model name' | cut -d: -f2 | sed 's/^ *//')"
-echo "🔹 Memory: $(free -h | awk '/^Mem:/ {print $2}')"
-echo "🔹 Disk Space: $(df -h / | awk 'NR==2 {print $4}')"
-echo "──────────────────────────────────────────────────────────"
-
-# User & Permission Check
-echo "👤 Running as user: $(whoami) (UID: $(id -u), GID: $(id -g))"
-echo "👥 Groups: $(id -Gn)"
-
-# Directory checks
-if [ ! -d "/home/steam/enshrouded" ]; then
-  echo "⚠️ Directory /home/steam/enshrouded does not exist. Creating..."
-  mkdir -p /home/steam/enshrouded/logs
-fi
-
-# Permission check
-echo "🔍 Checking permissions for /home/steam/enshrouded..."
-ls -ld /home/steam/enshrouded
-chmod +x /usr/local/bin/enshrouded
-
-echo "🔄 Updating ownership to match user..."
-sudo chown -R "$(id -u):$(id -g)" /home/steam/enshrouded 2>/dev/null || true
-
-# ───────────────────────────────────────────────────────────
-# Setup and Initialization
-# ───────────────────────────────────────────────────────────
-export WINEPREFIX="/home/steam/.wine"
-export DISPLAY=:1
-
-echo "🧹 Cleaning up cache..."
-rm -rf /home/steam/.cache
-
-echo "📦 Ensuring necessary directories exist..."
-mkdir -p /home/steam/enshrouded
-mkdir -p /home/steam/enshrouded/logs
-
-echo "🔧 Running SteamCMD to ensure dependencies are up to date..."
-steamcmd +quit
+# Run Rust setup command to initialize runtime
+enshrouded setup
 
 # ───────────────────────────────────────────────────────────
 # Install/Update (if necessary)
