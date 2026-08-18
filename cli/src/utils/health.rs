@@ -31,31 +31,32 @@ fn detect_host_ip() -> String {
         .unwrap_or_else(|_| "<your-server-ip>".to_string())
 }
 
-/// Checks whether something is bound to `port` (UDP) on this host by reading
-/// `/proc/net/udp{,6}` instead of attempting a real handshake. Enshrouded's
-/// game protocol doesn't offer a lightweight "are you alive" query packet, but
-/// a bound socket is a reliable proxy for "the process is up and the game
-/// port is open" -- which is what a player's client actually needs to connect.
+/// Checks whether something is bound to `port` (UDP) on this host by trying
+/// to bind it ourselves. Enshrouded's game protocol doesn't offer a
+/// lightweight "are you alive" query packet, but a bound socket is a
+/// reliable proxy for "the process is up and the game port is open" -- which
+/// is what a player's client actually needs to connect.
+///
+/// This used to parse `/proc/net/udp{,6}` for a matching local port, but that
+/// approach produced false negatives in practice (e.g. players could join
+/// while the check kept reporting the port as free). Attempting a real
+/// `bind()` is what the kernel itself uses to decide "is this port in use",
+/// so it can't drift out of sync with reality the way text-table parsing
+/// can: success means the port is free (nothing bound), and failure --
+/// specifically `EADDRINUSE`/`EADDRNOTAVAIL` -- means something already
+/// holds it.
 fn port_bound(port: u16) -> bool {
-    let hex_port = format!("{:04X}", port);
+    // A bind error only means "in use" if it's actually AddrInUse -- other
+    // errors (e.g. IPv6 disabled on this host) aren't evidence of anything
+    // and shouldn't be read as the game holding the port.
+    let in_use = |result: std::io::Result<UdpSocket>| {
+        matches!(
+            result,
+            Err(e) if e.kind() == std::io::ErrorKind::AddrInUse
+        )
+    };
 
-    for path in ["/proc/net/udp", "/proc/net/udp6"] {
-        let Ok(contents) = std::fs::read_to_string(path) else {
-            continue;
-        };
-        for line in contents.lines().skip(1) {
-            let Some(local_address) = line.split_whitespace().nth(1) else {
-                continue;
-            };
-            if let Some((_, port_hex)) = local_address.split_once(':') {
-                if port_hex.eq_ignore_ascii_case(&hex_port) {
-                    return true;
-                }
-            }
-        }
-    }
-
-    false
+    in_use(UdpSocket::bind(("0.0.0.0", port))) || in_use(UdpSocket::bind(("::", port)))
 }
 
 /// Polls the game port on an interval and logs liveness transitions.

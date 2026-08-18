@@ -330,8 +330,18 @@ pub fn get_proton_executable() -> Result<PathBuf, Box<dyn std::error::Error>> {
 }
 
 /// Spawn the server under Proton as a background process, redirecting output to
-/// the instance's log files and recording its pid so `stop`/`restart`/`monitor`
-/// can find it afterward.
+/// the instance's log files.
+///
+/// Deliberately does *not* record a pid file: `child.id()` here is Proton's
+/// own launcher process, not the `enshrouded_server.exe` process it execs
+/// under Wine. If we wrote that pid to `config.pid_file()`,
+/// `Instance::stop()` (gsm-instance) would find it and SIGINT that pid
+/// directly -- which only hits the Proton wrapper and never reaches the
+/// actual game process, so it gets no chance to save before the container's
+/// stop grace period expires and it's SIGKILLed. Leaving the pid file absent
+/// makes `stop()` fall through to its name-based fallback
+/// (`shutdown::blocking_shutdown`), which finds the real
+/// `enshrouded_server.exe` process and signals -- and waits on -- that one.
 pub fn spawn_server(
     proton_path: &Path,
     server_exe: &Path,
@@ -345,11 +355,6 @@ pub fn spawn_server(
     // target) can silently fail. By the time we're spawning the server, install
     // has definitely run.
     setup_steam_client_symlinks()?;
-
-    let pid_file = config.pid_file();
-    if pid_file.exists() {
-        fs::remove_file(&pid_file)?;
-    }
 
     let stdout = fs::File::create(config.stdout())?;
     let stderr = fs::File::create(config.stderr())?;
@@ -368,8 +373,10 @@ pub fn spawn_server(
         .stderr(stderr)
         .spawn()?;
 
-    info!("Server started in background with pid {}", child.id());
-    fs::write(&pid_file, child.id().to_string())?;
+    info!(
+        "Server started in background (Proton launcher pid {})",
+        child.id()
+    );
 
     Ok(())
 }
