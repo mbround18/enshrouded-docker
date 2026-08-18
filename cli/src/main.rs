@@ -192,7 +192,15 @@ async fn main() {
             }
 
             // Start monitoring the instance log files.
-            gsm_monitor::start_instance_log_monitor(working_dir, rules);
+            gsm_monitor::start_instance_log_monitor(working_dir.clone(), rules);
+
+            // Poll the game port for liveness, logged separately (target
+            // "health") from the instance log monitor above.
+            let game_port = {
+                let config_path = working_dir.join("enshrouded_server.json");
+                game_settings::load_or_create_config(&config_path).game_port as u16
+            };
+            tokio::spawn(utils::health::run_liveness_check(game_port));
 
             if update_job || is_env_var_truthy("AUTO_UPDATE") {
                 debug!("Auto-update job condition met.");
