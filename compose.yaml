@@ -1,7 +1,12 @@
 services:
   wine:
     image: mbround18/enshrouded-docker:wine-latest
-    stop_grace_period: 60s
+    # Enshrouded's world save on shutdown isn't instant, and the stop path
+    # (entrypoint.sh's trap -> `enshrouded stop` -> gsm-instance's
+    # blocking_shutdown) polls every 5s with no internal timeout of its own --
+    # so this is the actual bound before Docker gives up and SIGKILLs the
+    # container mid-save. 60s was cutting it close on larger worlds.
+    stop_grace_period: 120s
     build:
       context: .
       dockerfile: Dockerfile
@@ -40,7 +45,12 @@ services:
 
   proton:
     image: mbround18/enshrouded-docker:proton-latest
-    stop_grace_period: 60s
+    # Enshrouded's world save on shutdown isn't instant, and the stop path
+    # (entrypoint.sh's trap -> `enshrouded stop` -> gsm-instance's
+    # blocking_shutdown) polls every 5s with no internal timeout of its own --
+    # so this is the actual bound before Docker gives up and SIGKILLs the
+    # container mid-save. 60s was cutting it close on larger worlds.
+    stop_grace_period: 120s
     build:
       context: .
       dockerfile: Dockerfile

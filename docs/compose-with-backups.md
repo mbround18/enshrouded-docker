@@ -1,36 +1,38 @@
-# Compose with Backups
+# Backups
 
-> Seeing this error `ValueError: Input folder does not exist or is not a directory.` is normal if you are starting a new server for the first time.
-> It just means no saves have been recorded yet.
+This adds a sidecar container that periodically zips up your save folder and
+prunes old backups, alongside either the `wine` or `proton` server image.
 
-[Click here to see all options for the backup cron](https://github.com/mbround18/backup-docker)
+> Seeing `ValueError: Input folder does not exist or is not a directory.` in the
+> backup container's logs the first time you start everything is normal — it
+> just means the server hasn't written a save yet.
+
+[See all options for the backup sidecar image here.](https://github.com/mbround18/backup-docker)
+
+Save this as `compose.yaml` in its own empty folder (e.g. `~/enshrouded-server/`), then run `docker compose up -d` from that folder.
 
 ```yaml
-version: "3.8"
 services:
   enshrouded:
-    image: mbround18/enshrouded-docker:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: mbround18/enshrouded-docker:proton-latest # or :wine-latest, see README
+    stop_grace_period: 120s
     environment:
-      SERVER_NAME: "My Enshrouded Server" # Optional, Name of the server
-    #      PASSWORD: "" # Optional, Password for the server
-    #      SAVE_DIRECTORY: ./savegame # Optional, Save directory for the game
-    #      LOG_DIRECTORY: ./logs # Optional, Log directory for the server
-    #      SERVER_IP: 0.0.0.0 # Optional, IP address for the server
-    #      GAME_PORT: 15636 # Optional, Game port for the server
-    #      QUERY_PORT: 15637 # Optional, Query port for the server
-    #      SLOT_COUNT: 16 # Optional, Number of slots for the server
+      TZ: "America/Los_Angeles"
+      NAME: "My Enshrouded Server"
+      SET_GROUP_ADMIN_PASSWORD: "change-me"
+      SET_GROUP_GUEST_PASSWORD: "change-me-too"
     ports:
-      - "15636:15636"
-      - "15637:15637"
+      - "15636:15636/tcp"
+      - "15636:15636/udp"
+      - "15637:15637/tcp"
+      - "15637:15637/udp"
     volumes:
       - ./data:/home/steam/enshrouded
+
   backups:
     image: mbround18/backup-cron:latest
     environment:
-      - SCHEDULE=*/10 * * * *
+      - SCHEDULE=*/30 * * * *
       - INPUT_FOLDER=/home/steam/enshrouded/savegame
       - OUTPUT_FOLDER=/home/steam/backups
       - OUTPUT_USER=1000
@@ -41,3 +43,7 @@ services:
       - ./backups:/home/steam/backups
     restart: unless-stopped
 ```
+
+Backups land in `./backups` next to your compose file. Adjust `SCHEDULE` (cron syntax) and `KEEP_N_DAYS` to taste.
+
+See the [main README](../README.md) for the full list of environment variables you can add to the `enshrouded` service.
