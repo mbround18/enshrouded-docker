@@ -7,6 +7,10 @@ Welcome to the ultimate Enshrouded Server toolkit! This guide details how to dep
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+  - [Proton or Wine?](#proton-or-wine)
+  - [Option A: One-off `docker run`](#option-a-one-off-docker-run)
+  - [Option B: Docker Compose (recommended)](#option-b-docker-compose-recommended)
 - [Environment Variables](#environment-variables)
   - [General Settings](#general-settings)
   - [Game Settings](#game-settings)
@@ -19,8 +23,92 @@ Welcome to the ultimate Enshrouded Server toolkit! This guide details how to dep
 
 ## Prerequisites
 
-- **Docker**
-- **Docker Compose**
+- **Docker** — [install guide](https://docs.docker.com/engine/install/) if you're new to it. Docker Compose ships with it (`docker compose`, no hyphen) on any recent install.
+- **Linux kernel 6.14+ with the `ntsync` driver loaded** (`lsmod | grep ntsync`, device present at `/dev/ntsync`) — recommended for smoother startup. Without it, Wine/Proton fall back to `fsync` for NT synchronization primitives, which is markedly less stable during the server's multithreaded startup and can crash before Steamworks finishes initializing. If your host doesn't have it (or you're not sure), just drop the `devices:` block from whichever compose example below you use — the server still runs, just less reliably at startup.
+
+---
+
+## Quick Start
+
+> **New to Docker?** You don't need to clone this repository at all. Everything
+> you need is a published image on Docker Hub and one file you create
+> yourself. The `compose.yaml` at the root of *this* repo is a different
+> thing — it's for people developing the project itself (it builds the image
+> from source). Don't use it to run your server; use one of the two options
+> below instead.
+
+### Proton or Wine?
+
+This project publishes two image variants that run the Windows server binary
+on Linux through a different compatibility layer. Functionally they're the
+same server — pick one:
+
+| Image tag                             | Runtime  | Notes                                                              |
+| -------------------------------------- | -------- | ------------------------------------------------------------------- |
+| `mbround18/enshrouded-docker:proton-latest` | Proton   | Steam's own compatibility layer. **Recommended default.**          |
+| `mbround18/enshrouded-docker:wine-latest`   | Wine     | Good fallback if Proton gives you trouble on your host.            |
+
+If in doubt, use `proton-latest`.
+
+### Option A: One-off `docker run`
+
+Fastest way to try it out. Replace `~/enshrouded-data` with wherever you want
+your save files to live on the host:
+
+```bash
+docker run -d \
+  --name enshrouded \
+  -p 15636:15636/tcp -p 15636:15636/udp \
+  -p 15637:15637/tcp -p 15637:15637/udp \
+  -v ~/enshrouded-data:/home/steam/enshrouded \
+  -e NAME="My Enshrouded Server" \
+  -e SET_GROUP_ADMIN_PASSWORD="change-me" \
+  -e SET_GROUP_GUEST_PASSWORD="change-me-too" \
+  --stop-timeout 120 \
+  mbround18/enshrouded-docker:proton-latest
+```
+
+`--stop-timeout 120` matters: the server needs time to save the world when you
+stop the container, and 120 seconds gives it enough room to do that safely
+instead of getting killed mid-save.
+
+### Option B: Docker Compose (recommended)
+
+Create a new, empty folder for your server (e.g. `~/enshrouded-server/`), and
+save this as `compose.yaml` inside it:
+
+```yaml
+services:
+  enshrouded:
+    image: mbround18/enshrouded-docker:proton-latest
+    # See "Option A" above for why this isn't the default 10s.
+    stop_grace_period: 120s
+    environment:
+      TZ: "America/Los_Angeles"
+      NAME: "My Enshrouded Server"
+      SET_GROUP_ADMIN_PASSWORD: "change-me"
+      SET_GROUP_GUEST_PASSWORD: "change-me-too"
+    ports:
+      - "15636:15636/tcp"
+      - "15636:15636/udp"
+      - "15637:15637/tcp"
+      - "15637:15637/udp"
+    volumes:
+      - ./data:/home/steam/enshrouded
+```
+
+Then, from that same folder:
+
+```bash
+docker compose up -d    # start it in the background
+docker compose logs -f  # watch it boot (first run downloads/installs the game — be patient)
+docker compose down     # stop it (gracefully, see stop_grace_period above)
+```
+
+Your save files, logs, and server config end up in `./data` next to your
+`compose.yaml`. See [Environment Variables](#environment-variables) below for
+everything else you can set, and [docs/compose-with-backups.md](./docs/compose-with-backups.md)
+to add automatic backups on top of this.
 
 ---
 
@@ -46,6 +134,18 @@ These variables control the overall server configuration:
 | `SCHEDULED_RESTART`          | Flag to enable scheduled restarts                                                                                                                                                                               | _(disabled)_           | `true`                       |
 | `SCHEDULED_RESTART_SCHEDULE` | Cron schedule for automatic server restarts                                                                                                                                                                     | `0 4 * * *`            | `15 4 * * *`                 |
 | `UPDATE_ON_START`            | Flag to enable server update on startup                                                                                                                                                                         | _(disabled)_           | `true`                       |
+| `STOP_DELAY`                 | Seconds to wait after sending the "stopping" webhook notification before actually stopping the server (requires `WEBHOOK_URL`)                                                                                | _(none)_                | `30`                          |
+| `IP`                         | IP address the server binds to                                                                                                                                                                                  | `0.0.0.0`               | `0.0.0.0`                     |
+| `GAME_PORT`                  | Game port                                                                                                                                                                                                        | `15636`                 | `15636`                       |
+| `QUERY_PORT`                 | Query port                                                                                                                                                                                                       | `15637`                 | `15637`                       |
+| `SLOT_COUNT`                 | Max number of player slots                                                                                                                                                                                      | `16`                     | `8`                            |
+| `VOICE_CHAT_MODE`            | Voice chat mode (`Proximity` or `Global`)                                                                                                                                                                       | `Proximity`              | `Global`                      |
+| `ENABLE_VOICE_CHAT`          | Flag to enable in-game voice chat                                                                                                                                                                               | `false`                  | `true`                        |
+| `ENABLE_TEXT_CHAT`           | Flag to enable in-game text chat                                                                                                                                                                                | `false`                  | `true`                        |
+| `GAME_SETTINGS_PRESET`       | Game settings preset. **Must be `Custom` for any `Game Settings` overrides below to take effect**                                                                                                              | `Default`                | `Custom`                      |
+| `PUID`                       | UID the `steam` user runs as inside the container — match it to the owner of your mounted volume to avoid permission errors                                                                                    | `1000`                   | `1000`                        |
+| `PGID`                       | GID the `steam` user runs as inside the container — match it to the owner of your mounted volume to avoid permission errors                                                                                    | `1000`                   | `1000`                        |
+| `RUST_LOG`                   | Log verbosity for the CLI (`error`, `warn`, `info`, `debug`, `trace`)                                                                                                                                           | `info`                   | `debug`                       |
 
 ### Game Settings
 
@@ -105,15 +205,16 @@ Override user group settings in your configuration by prefixing with `SET_GROUP_
 
 ## Docker Compose Setup
 
-Below is an updated Docker Compose snippet that incorporates all of the above environment variable overrides. Customize it as needed:
+Below is the full `compose.yaml` from [Quick Start](#option-b-docker-compose-recommended)
+with every environment variable override from the tables above added in.
+Trim it down to just the ones you actually want to change — anything you
+omit just uses its default.
 
 ```yaml
 services:
   enshrouded:
-    image: mbround18/enshrouded-docker:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: mbround18/enshrouded-docker:proton-latest # or :wine-latest
+    stop_grace_period: 120s
     environment:
       TZ: "America/Los_Angeles"
       NAME: "My Enshrouded Server"
@@ -122,6 +223,16 @@ services:
       AUTO_UPDATE_SCHEDULE: "0 3 * * *"
       SCHEDULED_RESTART: "true"
       SCHEDULED_RESTART_SCHEDULE: "0 4 * * *"
+      UPDATE_ON_START: "true"
+      # Server settings (optional)
+      IP: "0.0.0.0"
+      GAME_PORT: "15636"
+      QUERY_PORT: "15637"
+      SLOT_COUNT: "16"
+      VOICE_CHAT_MODE: "Proximity"
+      ENABLE_VOICE_CHAT: "false"
+      ENABLE_TEXT_CHAT: "false"
+      GAME_SETTINGS_PRESET: "Default" # Must be "Custom" for the Game Settings overrides below to apply
       # Game Settings Overrides (optional)
       PLAYER_HEALTH_FACTOR: "1.0"
       PLAYER_MANA_FACTOR: "1.0"
@@ -177,13 +288,13 @@ services:
 To update your server settings after the initial setup:
 
 1. **Modify Environment Variables:**  
-   Update your `docker-compose.yml` with any new variable values.
+   Update the `compose.yaml` you created in [Quick Start](#option-b-docker-compose-recommended) with any new variable values.
 
 2. **Restart the Server:**  
-   Run the following commands to apply changes:
+   From that same folder, run:
    ```bash
-   docker-compose down
-   docker-compose up
+   docker compose down
+   docker compose up -d
    ```
 
 This process ensures that your server is always running with the latest configuration overrides.
@@ -192,13 +303,8 @@ This process ensures that your server is always running with the latest configur
 
 ## Contributions
 
-Contributions are welcome! If you encounter issues, have feature requests, or want to improve the codebase, please open an issue or submit a pull request.
+Contributions are welcome! If you encounter issues, have feature requests, or want to improve the codebase, please open an issue or submit a pull request. See [docs/development.md](./docs/development.md) for how to build and run this project from source.
 
 ---
-
-## Relevant Links
-
-- [Original README](citeturn0file1)
-- [Game Settings Implementation]()
 
 Happy hosting and may your adventures be epic!

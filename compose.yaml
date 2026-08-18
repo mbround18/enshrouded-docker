@@ -1,0 +1,88 @@
+services:
+  wine:
+    image: mbround18/enshrouded-docker:wine-latest
+    # Enshrouded's world save on shutdown isn't instant, and the stop path
+    # (entrypoint.sh's trap -> `enshrouded stop` -> gsm-instance's
+    # blocking_shutdown) polls every 5s with no internal timeout of its own --
+    # so this is the actual bound before Docker gives up and SIGKILLs the
+    # container mid-save. 60s was cutting it close on larger worlds.
+    stop_grace_period: 120s
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+      target: wine-runtime
+      cache_from:
+        - type=local,src=.buildx-cache
+      cache_to:
+        - type=local,dest=.buildx-cache,mode=max
+    environment:
+      TZ: "America/Los_Angeles"
+      NAME: "Demo Enshrouded Server"
+      AUTO_UPDATE: "1"
+      AUTO_UPDATE_SCHEDULE: "0 3 * * *"
+      SCHEDULED_RESTART: "1"
+      SCHEDULED_RESTART_SCHEDULE: "0 4 * * *"
+      SET_GROUP_ADMIN_PASSWORD: "super-secure-password"
+      SET_GROUP_GUEST_PASSWORD: "secure-password"
+      # PLAYER_BODY_HEAT_FACTOR: "0.5"
+      RUST_LOG: "debug"
+    # Requires a host kernel with the ntsync driver (Linux 6.14+, module loaded:
+    # `lsmod | grep ntsync`, device present: `ls /dev/ntsync`). Without this,
+    # Wine/Proton fall back to fsync for NT synchronization primitives, which is
+    # markedly less stable under the heavy multithreaded init the server does on
+    # startup. If your host doesn't have it, remove this block.
+    devices:
+      - /dev/ntsync:/dev/ntsync
+    volumes:
+      - ./tmp/wine:/home/steam/enshrouded
+    ports:
+      - "15636:15636/tcp"
+      - "15636:15636/udp"
+      - "15637:15637/tcp"
+      - "15637:15637/udp"
+
+  proton:
+    image: mbround18/enshrouded-docker:proton-latest
+    # Enshrouded's world save on shutdown isn't instant, and the stop path
+    # (entrypoint.sh's trap -> `enshrouded stop` -> gsm-instance's
+    # blocking_shutdown) polls every 5s with no internal timeout of its own --
+    # so this is the actual bound before Docker gives up and SIGKILLs the
+    # container mid-save. 60s was cutting it close on larger worlds.
+    stop_grace_period: 120s
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+      target: proton-runtime
+      cache_from:
+        - type=local,src=.buildx-cache
+      cache_to:
+        - type=local,dest=.buildx-cache,mode=max
+    environment:
+      TZ: "America/Los_Angeles"
+      NAME: "Demo Enshrouded Server"
+      AUTO_UPDATE: "1"
+      AUTO_UPDATE_SCHEDULE: "0 3 * * *"
+      SCHEDULED_RESTART: "1"
+      SCHEDULED_RESTART_SCHEDULE: "0 4 * * *"
+      SET_GROUP_ADMIN_PASSWORD: "super-secure-password"
+      SET_GROUP_GUEST_PASSWORD: "secure-password"
+      # PLAYER_BODY_HEAT_FACTOR: "0.5"
+      RUST_LOG: "debug"
+    # Requires a host kernel with the ntsync driver (Linux 6.14+, module loaded:
+    # `lsmod | grep ntsync`, device present: `ls /dev/ntsync`). Without this,
+    # Wine/Proton fall back to fsync for NT synchronization primitives, which is
+    # markedly less stable under the heavy multithreaded init the server does on
+    # startup. If your host doesn't have it, remove this block.
+    devices:
+      - /dev/ntsync:/dev/ntsync
+    volumes:
+      - ./tmp/proton:/home/steam/enshrouded
+    ports:
+      - "15636:15636/tcp"
+      - "15636:15636/udp"
+      - "15637:15637/tcp"
+      - "15637:15637/udp"

@@ -1,0 +1,254 @@
+{
+  "TOMBSTONE_MODE": {
+    "field": null,
+    "var_type": null,
+    "default": null,
+    "description": ""
+  },
+  "NIGHT_TIME_DURATION": {
+    "field": null,
+    "var_type": "u64",
+    "default": "720_000_000_000",
+    "description": ""
+  },
+  "ENABLE_STARVING_DEBUFF": {
+    "field": null,
+    "var_type": "bool",
+    "default": "false",
+    "description": ""
+  },
+  "ENABLE_DURABILITY": {
+    "field": null,
+    "var_type": "bool",
+    "default": "true",
+    "description": ""
+  },
+  "PLAYER_MANA_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "SCHEDULED_RESTART_SCHEDULE": {
+    "field": null,
+    "var_type": null,
+    "default": "0 4 * * *",
+    "description": ""
+  },
+  "NAME": {
+    "field": null,
+    "var_type": null,
+    "default": "My Enshrouded Server",
+    "description": ""
+  },
+  "SHROUD_TIME_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "WEATHER_FREQUENCY": {
+    "field": null,
+    "var_type": null,
+    "default": null,
+    "description": ""
+  },
+  "ENABLE_GLIDER_TURBULENCES": {
+    "field": null,
+    "var_type": "bool",
+    "default": "true",
+    "description": ""
+  },
+  "ENEMY_HEALTH_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "BOSS_DAMAGE_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "MINING_DAMAGE_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "EXPERIENCE_MINING_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "ENEMY_DAMAGE_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "PLANT_GROWTH_SPEED_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "FROM_HUNGER_TO_STARVING": {
+    "field": null,
+    "var_type": "u64",
+    "default": "600_000_000_000",
+    "description": ""
+  },
+  "AUTO_UPDATE": {
+    "field": null,
+    "var_type": "bool",
+    "default": null,
+    "description": ""
+  },
+  "THREAT_BONUS": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "RESOURCE_DROP_STACK_AMOUNT_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "BOSS_HEALTH_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "EXPERIENCE_EXPLORATION_QUESTS_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "PACIFY_ALL_ENEMIES": {
+    "field": null,
+    "var_type": "bool",
+    "default": "false",
+    "description": ""
+  },
+  "STOP_DELAY": {
+    "field": null,
+    "var_type": null,
+    "default": null,
+    "description": ""
+  },
+  "PERK_COST_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "TAMING_STARTLE_REPERCUSSION": {
+    "field": null,
+    "var_type": null,
+    "default": null,
+    "description": ""
+  },
+  "PLAYER_BODY_HEAT_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "SCHEDULED_RESTART": {
+    "field": null,
+    "var_type": "bool",
+    "default": null,
+    "description": ""
+  },
+  "AGGRO_POOL_AMOUNT": {
+    "field": null,
+    "var_type": null,
+    "default": null,
+    "description": ""
+  },
+  "RANDOM_SPAWNER_AMOUNT": {
+    "field": null,
+    "var_type": null,
+    "default": null,
+    "description": ""
+  },
+  "ENEMY_STAMINA_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "TZ": {
+    "field": null,
+    "var_type": null,
+    "default": "America/Los_Angeles",
+    "description": ""
+  },
+  "AUTO_UPDATE_SCHEDULE": {
+    "field": null,
+    "var_type": null,
+    "default": "0 3 * * *",
+    "description": ""
+  },
+  "PERK_UPGRADE_RECYCLING_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "0.5",
+    "description": ""
+  },
+  "EXPERIENCE_COMBAT_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "PLAYER_HEALTH_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "FACTORY_PRODUCTION_SPEED_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "WEBHOOK_URL": {
+    "field": null,
+    "var_type": null,
+    "default": null,
+    "description": ""
+  },
+  "PLAYER_STAMINA_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "ENEMY_PERCEPTION_RANGE_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "FOOD_BUFF_DURATION_FACTOR": {
+    "field": null,
+    "var_type": "f32",
+    "default": "1.0",
+    "description": ""
+  },
+  "DAY_TIME_DURATION": {
+    "field": null,
+    "var_type": "u64",
+    "default": "1_800_000_000_000",
+    "description": ""
+  }
+}

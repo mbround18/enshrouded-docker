@@ -28,13 +28,17 @@ install_packages() {
     netcat-traditional \
     cron \
     tzdata \
+    python3 \
     xvfb \
     dbus \
+    libvulkan1 \
+    mesa-vulkan-drivers \
     libglib2.0-0 \
     libpulse0 \
     libdbus-1-3 \
     libfontconfig1 \
     libfreetype6 \
+    libfreetype6:i386 \
     libxext6 \
     libxfixes3 \
     libxi6 \

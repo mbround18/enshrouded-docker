@@ -1,0 +1,31 @@
+[workspace]
+members = ["cli"]
+resolver = "2"
+
+
+
+[profile.release]
+# Optimize for size and performance, often a good balance.
+# "z" is more aggressive on size and may slow down performance.
+opt-level = 3
+
+# Enables Link Time Optimization (LTO), which performs cross-crate optimizations
+# to improve runtime performance and decrease binary size.
+# "thin" is a good balance between compile time and optimization quality.
+# "fat" is the most aggressive but significantly increases link time.
+lto = "fat"
+
+# Sets the number of code generation units. A value of 1 forces all code to be
+# compiled as a single unit, allowing for better cross-crate optimization.
+# This increases compile time but can lead to a more performant binary.
+codegen-units = 1
+
+# Removes debug information and symbols from the final binary, dramatically
+# reducing its size. Use "symbols" to retain minimal symbol information for
+# backtraces or "debuginfo" to retain debug information in a separate file.
+strip = "symbols"
+
+# Changes the panic strategy from "unwind" to "abort".
+# This reduces binary size but prevents a stack trace on a crash.
+# This is often suitable for production server-side applications.
+panic = "abort"

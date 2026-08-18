@@ -2,56 +2,31 @@
 set -Euo pipefail
 
 # ───────────────────────────────────────────────────────────
-# Welcome to the Enshruded Docker container
+# Welcome to the Enshrouded Docker container
 # If you are modifying this script please check contributors guide! :)
 # ───────────────────────────────────────────────────────────
 
-echo "──────────────────────────────────────────────────────────"
-echo "🚀 Enshrouded Docker - $(date)"
-echo "──────────────────────────────────────────────────────────"
-
-# System Info
-echo "🔹 Hostname: $(hostname)"
-echo "🔹 Kernel: $(uname -r)"
-echo "🔹 OS: $(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '\"')"
-echo "🔹 CPU: $(lscpu | grep 'Model name' | cut -d: -f2 | sed 's/^ *//')"
-echo "🔹 Memory: $(free -h | awk '/^Mem:/ {print $2}')"
-echo "🔹 Disk Space: $(df -h / | awk 'NR==2 {print $4}')"
-echo "──────────────────────────────────────────────────────────"
-
-# User & Permission Check
-echo "👤 Running as user: $(whoami) (UID: $(id -u), GID: $(id -g))"
-echo "👥 Groups: $(id -Gn)"
-
-# Directory checks
-if [ ! -d "/home/steam/enshrouded" ]; then
-  echo "⚠️ Directory /home/steam/enshrouded does not exist. Creating..."
-  mkdir -p /home/steam/enshrouded/logs
-fi
-
-# Permission check
-echo "🔍 Checking permissions for /home/steam/enshrouded..."
-ls -ld /home/steam/enshrouded
-chmod +x /usr/local/bin/enshrouded
-
-echo "🔄 Updating ownership to match user..."
-sudo chown -R "$(id -u):$(id -g)" /home/steam/enshrouded 2>/dev/null || true
+# ───────────────────────────────────────────────────────────
+# Fix ownership of mounted volumes
+# ───────────────────────────────────────────────────────────
+# A freshly bind-mounted host directory (e.g. docker-compose.yml's
+# ./tmp/proton, ./tmp/wine) is created by the Docker daemon as root before the
+# container ever starts, which the unprivileged steam user can't write into.
+echo "🔧 Fixing ownership of /home/steam/enshrouded..."
+sudo chown -R steam:steam /home/steam/enshrouded 2>/dev/null || true
 
 # ───────────────────────────────────────────────────────────
-# Setup and Initialization
+# Start a virtual display
 # ───────────────────────────────────────────────────────────
-export WINEPREFIX="/home/steam/.wine"
-export DISPLAY=:1
+# The Windows server binary is launched under Wine/Proton and needs a display
+# to attach to (DXVK/Xalia fail hard without one), even though nothing is
+# ever rendered on screen.
+echo "🖥️ Starting virtual display on ${DISPLAY:-:0}..."
+Xvfb "${DISPLAY:-:0}" -screen 0 1024x768x16 &
+XVFB_PID=$!
 
-echo "🧹 Cleaning up cache..."
-rm -rf /home/steam/.cache
-
-echo "📦 Ensuring necessary directories exist..."
-mkdir -p /home/steam/enshrouded
-mkdir -p /home/steam/enshrouded/logs
-
-echo "🔧 Running SteamCMD to ensure dependencies are up to date..."
-steamcmd +quit
+# Run Rust setup command to initialize runtime
+enshrouded setup
 
 # ───────────────────────────────────────────────────────────
 # Install/Update (if necessary)
@@ -76,7 +51,7 @@ enshrouded monitor &
 MONITOR_PID=$!
 
 # Set trap to run cleanup and kill the monitor process if needed
-trap 'enshrouded stop; kill $MONITOR_PID' SIGTERM SIGINT ERR
+trap 'enshrouded stop; kill $MONITOR_PID $XVFB_PID' SIGTERM SIGINT ERR
 
 # Wait for the monitor process to exit
 wait $MONITOR_PID

@@ -3,28 +3,27 @@
 set -euo pipefail
 
 install_wine() {
-  # Download Wine repository key
-  wget -O /tmp/winehq.key https://dl.winehq.org/wine-builds/winehq.key
-
   # Add i386 architecture and update package lists
   dpkg --add-architecture i386
   apt-get update
 
   # Install required packages for repository management
-  apt-get install -y software-properties-common gnupg2
+  apt-get install -y software-properties-common gnupg2 curl
 
-  # Add Wine repository key
-  apt-key add /tmp/winehq.key
+  # Download and add Wine repository key (modern method)
+  curl -fsSL https://dl.winehq.org/wine-builds/winehq.key | gpg --dearmor --output /usr/share/keyrings/winehq-archive.gpg
 
-  # Add Wine repository
-  apt-add-repository "deb https://dl.winehq.org/wine-builds/ubuntu/ bionic main"
+  # Add Wine repository for Ubuntu 25.04 (use jammy as fallback)
+  echo "deb [signed-by=/usr/share/keyrings/winehq-archive.gpg] https://dl.winehq.org/wine-builds/ubuntu/ jammy main" > /etc/apt/sources.list.d/winehq.list
+
+  # Update package lists
+  apt-get update
 
   # Install Wine and related packages
   apt-get install -y --install-recommends winehq-stable winbind cabextract
 
   # Clean up
   rm -rf /var/lib/apt/lists/*
-  rm -f /tmp/winehq.key
 }
 
 main() {
