@@ -82,6 +82,22 @@ fn setup_steam_client_symlinks() -> Result<(), Box<dyn std::error::Error>> {
     let home = PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/home/steam".to_string()));
     let steamcmd_dir = home.join(".local/share/Steam/steamcmd");
 
+    // steamcmd only populates ~/.local/share/Steam/steamcmd/linux32|64 (and the
+    // steamclient.so inside it) as a side effect of actually running under this
+    // user, which happens during `enshrouded install`. But entrypoint.sh skips
+    // `install` whenever enshrouded_server.exe already exists (e.g. a container
+    // restarted against an already-populated volume), so on a persisted volume
+    // this directory can be permanently missing even though the game itself is
+    // installed. Bootstrap it here with a plain `+quit`, which just makes
+    // steamcmd self-update and exit — no game/app install needed.
+    if fs::symlink_metadata(&steamcmd_dir.join("linux64").join("steamclient.so")).is_err() {
+        debug!("Bootstrapping steamcmd SDK libraries for {:?}", home);
+        std::process::Command::new("steamcmd")
+            .arg("+quit")
+            .status()
+            .ok();
+    }
+
     for arch_dir in ["linux32", "linux64"] {
         let sdk_link = home.join(".steam").join(match arch_dir {
             "linux32" => "sdk32",
