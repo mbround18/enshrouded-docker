@@ -134,6 +134,18 @@ These variables control the overall server configuration:
 | `SCHEDULED_RESTART`          | Flag to enable scheduled restarts                                                                                                                                                                               | _(disabled)_           | `true`                       |
 | `SCHEDULED_RESTART_SCHEDULE` | Cron schedule for automatic server restarts                                                                                                                                                                     | `0 4 * * *`            | `15 4 * * *`                 |
 | `UPDATE_ON_START`            | Flag to enable server update on startup                                                                                                                                                                         | _(disabled)_           | `true`                       |
+| `STOP_DELAY`                 | Seconds to wait after sending the "stopping" webhook notification before actually stopping the server (requires `WEBHOOK_URL`)                                                                                | _(none)_                | `30`                          |
+| `IP`                         | IP address the server binds to                                                                                                                                                                                  | `0.0.0.0`               | `0.0.0.0`                     |
+| `GAME_PORT`                  | Game port                                                                                                                                                                                                        | `15636`                 | `15636`                       |
+| `QUERY_PORT`                 | Query port                                                                                                                                                                                                       | `15637`                 | `15637`                       |
+| `SLOT_COUNT`                 | Max number of player slots                                                                                                                                                                                      | `16`                     | `8`                            |
+| `VOICE_CHAT_MODE`            | Voice chat mode (`Proximity` or `Global`)                                                                                                                                                                       | `Proximity`              | `Global`                      |
+| `ENABLE_VOICE_CHAT`          | Flag to enable in-game voice chat                                                                                                                                                                               | `false`                  | `true`                        |
+| `ENABLE_TEXT_CHAT`           | Flag to enable in-game text chat                                                                                                                                                                                | `false`                  | `true`                        |
+| `GAME_SETTINGS_PRESET`       | Game settings preset. **Must be `Custom` for any `Game Settings` overrides below to take effect**                                                                                                              | `Default`                | `Custom`                      |
+| `PUID`                       | UID the `steam` user runs as inside the container — match it to the owner of your mounted volume to avoid permission errors                                                                                    | `1000`                   | `1000`                        |
+| `PGID`                       | GID the `steam` user runs as inside the container — match it to the owner of your mounted volume to avoid permission errors                                                                                    | `1000`                   | `1000`                        |
+| `RUST_LOG`                   | Log verbosity for the CLI (`error`, `warn`, `info`, `debug`, `trace`)                                                                                                                                           | `info`                   | `debug`                       |
 
 ### Game Settings
 
@@ -211,6 +223,16 @@ services:
       AUTO_UPDATE_SCHEDULE: "0 3 * * *"
       SCHEDULED_RESTART: "true"
       SCHEDULED_RESTART_SCHEDULE: "0 4 * * *"
+      UPDATE_ON_START: "true"
+      # Server settings (optional)
+      IP: "0.0.0.0"
+      GAME_PORT: "15636"
+      QUERY_PORT: "15637"
+      SLOT_COUNT: "16"
+      VOICE_CHAT_MODE: "Proximity"
+      ENABLE_VOICE_CHAT: "false"
+      ENABLE_TEXT_CHAT: "false"
+      GAME_SETTINGS_PRESET: "Default" # Must be "Custom" for the Game Settings overrides below to apply
       # Game Settings Overrides (optional)
       PLAYER_HEALTH_FACTOR: "1.0"
       PLAYER_MANA_FACTOR: "1.0"

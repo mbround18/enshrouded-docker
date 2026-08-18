@@ -3,6 +3,8 @@ use std::env;
 
 /// Applies environment variable overrides to the config.
 pub fn apply_env_overrides(config: &mut ServerConfig) {
+    config.apply_field_env_overrides();
+
     let env_config = crate::game_settings::GameSettings::from_env();
     config.game_settings.merge_env(&env_config);
 

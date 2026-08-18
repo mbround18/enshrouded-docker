@@ -243,6 +243,35 @@ pub struct ServerConfig {
     pub game_port: i32,
 }
 
+macro_rules! server_env_field_mapping {
+    ($($field:ident => $env_var:literal),*) => {
+        /// Overrides top-level server fields (name, ports, slots, etc.) from
+        /// environment variables when set, keeping the existing/default value
+        /// otherwise.
+        pub fn apply_field_env_overrides(&mut self) {
+            $(
+                if std::env::var($env_var).is_ok() {
+                    self.$field = env_parse!($env_var, self.$field.clone(), _);
+                }
+            )*
+        }
+    };
+}
+
+impl ServerConfig {
+    server_env_field_mapping! {
+        name => "NAME",
+        ip => "IP",
+        game_port => "GAME_PORT",
+        query_port => "QUERY_PORT",
+        slot_count => "SLOT_COUNT",
+        voice_chat_mode => "VOICE_CHAT_MODE",
+        enable_voice_chat => "ENABLE_VOICE_CHAT",
+        enable_text_chat => "ENABLE_TEXT_CHAT",
+        game_settings_preset => "GAME_SETTINGS_PRESET"
+    }
+}
+
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
@@ -352,6 +381,15 @@ mod tests {
             "EXPERIENCE_COMBAT_FACTOR",
             "TOMBSTONE_MODE",
             "THREAT_BONUS",
+            "NAME",
+            "IP",
+            "GAME_PORT",
+            "QUERY_PORT",
+            "SLOT_COUNT",
+            "VOICE_CHAT_MODE",
+            "ENABLE_VOICE_CHAT",
+            "ENABLE_TEXT_CHAT",
+            "GAME_SETTINGS_PRESET",
         ];
         for var in vars {
             unsafe {
@@ -495,5 +533,54 @@ mod tests {
         unsafe {
             std::env::remove_var("PLAYER_HEALTH_FACTOR");
         }
+    }
+
+    #[test]
+    fn test_server_config_field_env_overrides() {
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        clear_env_vars();
+
+        unsafe {
+            env::set_var("NAME", "Overridden Name");
+            env::set_var("IP", "127.0.0.1");
+            env::set_var("GAME_PORT", "25000");
+            env::set_var("QUERY_PORT", "25001");
+            env::set_var("SLOT_COUNT", "8");
+            env::set_var("VOICE_CHAT_MODE", "Global");
+            env::set_var("ENABLE_VOICE_CHAT", "true");
+            env::set_var("ENABLE_TEXT_CHAT", "true");
+            env::set_var("GAME_SETTINGS_PRESET", "Custom");
+        }
+
+        let mut config = ServerConfig::default();
+        config.apply_field_env_overrides();
+
+        assert_eq!(config.name, "Overridden Name");
+        assert_eq!(config.ip, "127.0.0.1");
+        assert_eq!(config.game_port, 25000);
+        assert_eq!(config.query_port, 25001);
+        assert_eq!(config.slot_count, 8);
+        assert_eq!(config.voice_chat_mode, "Global");
+        assert!(config.enable_voice_chat);
+        assert!(config.enable_text_chat);
+        assert_eq!(config.game_settings_preset, "Custom");
+
+        clear_env_vars();
+    }
+
+    #[test]
+    fn test_server_config_field_env_overrides_noop_when_unset() {
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        clear_env_vars();
+
+        let mut config = ServerConfig {
+            name: "Untouched".to_string(),
+            game_port: 15636,
+            ..Default::default()
+        };
+        config.apply_field_env_overrides();
+
+        assert_eq!(config.name, "Untouched");
+        assert_eq!(config.game_port, 15636);
     }
 }
