@@ -74,7 +74,7 @@ async fn main() {
     // scheduled-restart job, and the post-update restart all agree on how to
     // launch it — `Instance::start()`/`restart()` from gsm-instance only know
     // how to launch via wine64 directly, which isn't on PATH on the
-    // proton-runtime image.
+    // proton image.
     fn start_server_via_proton(config: &InstanceConfig) -> Result<(), Box<dyn std::error::Error>> {
         setup_configuration(&config.working_dir);
 

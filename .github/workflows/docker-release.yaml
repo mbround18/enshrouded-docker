@@ -44,9 +44,9 @@ jobs:
       matrix:
         include:
           - flavor: proton
-            target: proton-runtime
+            target: proton
           - flavor: wine
-            target: wine-runtime
+            target: wine
     steps:
       - uses: actions/checkout@v7
         with:
