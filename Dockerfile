@@ -56,7 +56,7 @@ ENV TZ=America/Los_Angeles
 ENV PYTHONUNBUFFERED=1 DISPLAY=:0 PUID=1000 PGID=1000
 
 # Stage 3: Wine runtime - Self-contained final image with Wine
-FROM base AS wine-runtime
+FROM base AS wine
 ARG WINEARCH=win64
 ARG WINE_MONO_VERSION=4.9.4
 ENV WINEDEBUG=fixme-all
@@ -89,7 +89,7 @@ ENV PATH=/home/steam/.local/bin:/usr/local/share/enshrouded-config:/usr/local/sb
 ENTRYPOINT ["/home/steam/scripts/entrypoint.sh"]
 
 # Stage 4: Proton runtime - Self-contained final image with Proton-GE
-FROM base AS proton-runtime
+FROM base AS proton
 # Copy pre-downloaded Proton-GE
 COPY --from=proton-download --chown=steam:steam /opt/proton /home/steam/.proton
 
