@@ -1,6 +1,6 @@
 # Build arguments
 ARG RUST_VERSION=1.97.1
-ARG UBUNTU_VERSION=25.04
+ARG UBUNTU_VERSION=26.04
 
 # Stage 0: Rust Build - Compiles the Rust binary
 FROM rust:${RUST_VERSION} AS rust-build
