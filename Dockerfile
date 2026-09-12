@@ -1,5 +1,5 @@
 # Build arguments
-ARG RUST_VERSION=1.97.1
+ARG RUST_VERSION=1.98.1
 ARG UBUNTU_VERSION=25.04
 
 # Stage 0: Rust Build - Compiles the Rust binary
