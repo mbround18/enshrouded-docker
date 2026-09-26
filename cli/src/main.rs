@@ -192,7 +192,23 @@ async fn main() {
             }
 
             // Start monitoring the instance log files.
-            gsm_monitor::start_instance_log_monitor(working_dir.clone(), rules);
+            gsm_monitor::start_instance_log_monitor(working_dir.clone(), rules.clone());
+
+            // The session log is written to `enshrouded_server.log` not to `server.log`.
+            // Attach another monitor thread to `logs/enshrouded_server.log` in order to find
+            // the webhook events like "[Session] 'HostOnline' (up)!" and player join/leave.
+            {
+                let game_log_exists_retry_interval: Duration = Duration::from_millis(250);
+                let game_log = working_dir.join("logs").join("enshrouded_server.log");
+                let game_log_rules = rules.clone();
+                tokio::spawn(async move {
+                    while !game_log.exists() {
+                        // Wait for the file to be created on the first boot
+                        tokio::time::sleep(game_log_exists_retry_interval).await;
+                    }
+                    gsm_monitor::start_monitor_in_thread(game_log, game_log_rules);
+                });
+            }
 
             // Poll the game port for liveness, logged separately (target
             // "health") from the instance log monitor above.
