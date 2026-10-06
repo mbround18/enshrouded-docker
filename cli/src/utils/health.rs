@@ -120,6 +120,23 @@ fn port_bound(port: u16) -> bool {
     in_use(UdpSocket::bind(("0.0.0.0", port))) || in_use(UdpSocket::bind(("::", port)))
 }
 
+/// Whether the server is reachable on either of the ports it advertises.
+///
+/// Checking only the game port is not enough. A running Enshrouded server
+/// binds its *query* port and leaves the game port unbound, carrying actual
+/// gameplay traffic over Steam's networking sockets on ephemeral ports
+/// instead. A readiness probe that waited on the game port therefore sat at
+/// 503 forever against a server that had finished loading its world and was
+/// ticking sessions normally -- which also left the container permanently
+/// `(unhealthy)`.
+///
+/// Either port being bound means the server is up and discoverable, so we
+/// check both: that keeps this correct if a future version of the game does
+/// bind the game port after all.
+fn server_listening(game_port: u16, query_port: u16) -> bool {
+    port_bound(game_port) || port_bound(query_port)
+}
+
 /// Whether a process whose command line mentions `needle` is running.
 ///
 /// Walks `/proc` directly rather than pulling in a process-listing crate:
@@ -172,19 +189,20 @@ fn cmdline_contains(cmdline: &Path, needle: &str) -> bool {
 pub async fn run_health_poller(state: Arc<HealthState>) {
     let host = detect_host_ip();
     let game_port = state.game_port();
+    let query_port = state.query_port();
     let mut interval = tokio::time::interval(POLL_INTERVAL);
 
     loop {
         interval.tick().await;
 
         let was_ready = state.is_ready();
-        let alive = port_bound(game_port);
-        state.port_bound.store(alive, Ordering::Relaxed);
+        let ready = server_listening(game_port, query_port);
+        state.port_bound.store(ready, Ordering::Relaxed);
         state
             .process_up
             .store(process_matching("enshrouded_server.exe"), Ordering::Relaxed);
 
-        match (alive, was_ready) {
+        match (ready, was_ready) {
             (true, false) => {
                 info!(
                     target: LOG_TARGET,
@@ -194,14 +212,14 @@ pub async fn run_health_poller(state: Arc<HealthState>) {
             (false, true) => {
                 warn!(
                     target: LOG_TARGET,
-                    "Game port {game_port} is no longer accepting connections"
+                    "Server is no longer listening on port {game_port} or {query_port}"
                 );
             }
             (true, true) => {
-                debug!(target: LOG_TARGET, "Health check: game port {game_port} still accepting connections");
+                debug!(target: LOG_TARGET, "Health check: still listening on port {game_port} or {query_port}");
             }
             (false, false) => {
-                debug!(target: LOG_TARGET, "Health check: game port {game_port} not yet accepting connections");
+                debug!(target: LOG_TARGET, "Health check: not yet listening on port {game_port} or {query_port}");
             }
         }
     }
@@ -225,6 +243,26 @@ mod tests {
         // Our own cmdline is in /proc, so a substring of it must match.
         assert!(process_matching("enshrouded"));
         assert!(!process_matching("definitely-not-a-running-process-xyzzy"));
+    }
+
+    /// The game port stays unbound on a healthy server, so readiness has to
+    /// accept the query port on its own -- this is the exact case that kept
+    /// `/ready` at 503 against a fully loaded world.
+    #[test]
+    fn server_listening_accepts_the_query_port_alone() {
+        let query = UdpSocket::bind("0.0.0.0:0").expect("bind an ephemeral port");
+        let query_port = query.local_addr().expect("local addr").port();
+
+        // A port we bind and release is known-free, so it stands in for the
+        // game port the server never binds.
+        let free = UdpSocket::bind("0.0.0.0:0").expect("bind an ephemeral port");
+        let game_port = free.local_addr().expect("local addr").port();
+        drop(free);
+
+        assert!(server_listening(game_port, query_port));
+
+        drop(query);
+        assert!(!server_listening(game_port, query_port));
     }
 
     #[test]
