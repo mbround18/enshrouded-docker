@@ -5,6 +5,7 @@ mod utils;
 use crate::environment::name;
 use clap::{Parser, Subcommand};
 use gsm_cron::{begin_cron_loop, register_job};
+use gsm_instance::config::LaunchMode;
 use gsm_instance::{Instance, InstanceConfig};
 use gsm_monitor::LogRules;
 use gsm_notifications::notifications::{StandardServerEvents, send_notifications};
@@ -64,6 +65,35 @@ enum Commands {
     },
 }
 
+/// Attach a log monitor to the game's own session log, once that log exists.
+///
+/// On a first boot the file doesn't appear until steamcmd has finished
+/// downloading the game and the server has booted, which takes minutes, so
+/// this waits rather than giving up. It does say so out loud if the wait gets
+/// long: a silent wait here is indistinguishable from broken webhooks, which
+/// is the symptom that sent anyone looking in the first place.
+async fn monitor_game_log(game_log: PathBuf, rules: LogRules) {
+    const POLL_INTERVAL: Duration = Duration::from_millis(250);
+    const COMPLAIN_AFTER: Duration = Duration::from_secs(300);
+
+    let waiting_since = std::time::Instant::now();
+    let mut complained = false;
+
+    while !game_log.exists() {
+        if !complained && waiting_since.elapsed() >= COMPLAIN_AFTER {
+            warn!(
+                "Still waiting for {} after {} minutes. Webhook notifications stay silent until it appears.",
+                game_log.display(),
+                COMPLAIN_AFTER.as_secs() / 60
+            );
+            complained = true;
+        }
+        tokio::time::sleep(POLL_INTERVAL).await;
+    }
+
+    gsm_monitor::start_monitor_in_thread(game_log, rules);
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
@@ -108,6 +138,12 @@ async fn main() {
         launch_args: vec![],
         force_windows: true,
         working_dir: PathBuf::from("/home/steam/enshrouded"),
+        // Describes how gsm would launch the server itself. We don't let it:
+        // every start here goes through `start_server_via_proton` below, for
+        // the reasons in its comment. Declared truthfully anyway so the two
+        // don't disagree if that ever changes.
+        launch_mode: LaunchMode::Proton,
+        skip_validate: false,
     };
     debug!("Instance configuration set: {:?}", instance_config);
 
@@ -199,7 +235,17 @@ async fn main() {
             }
 
             // Start monitoring the instance log files.
-            gsm_monitor::start_instance_log_monitor(working_dir.clone(), rules);
+            gsm_monitor::start_instance_log_monitor(&working_dir, rules.clone());
+
+            // The session log is written to `enshrouded_server.log`, not to the
+            // `server.log`/`server.err` pair that `start_instance_log_monitor`
+            // watches: the server writes nothing to its own stdout, so every
+            // webhook trigger -- "[Session] 'HostOnline' (up)!" and the player
+            // join/leave lines -- lands only in the game's own log.
+            tokio::spawn(monitor_game_log(
+                working_dir.join("logs").join("enshrouded_server.log"),
+                rules.clone(),
+            ));
 
             // Poll the game port and server process for liveness, logged
             // separately (target "health") from the instance log monitor
