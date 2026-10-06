@@ -1,10 +1,71 @@
 use std::net::UdpSocket;
-use std::time::Duration;
+use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
 /// Target used for every health-check log line, so operators can isolate this
 /// stream from the rest of the server/monitor logs, e.g. `RUST_LOG=health=debug`.
 const LOG_TARGET: &str = "health";
+
+/// How often the background poller refreshes [`HealthState`].
+const POLL_INTERVAL: Duration = Duration::from_secs(5);
+
+/// Snapshot of what we know about the game server, refreshed on an interval by
+/// [`run_health_poller`] and read (lock-free) by the HTTP probe handlers.
+///
+/// Probes must never do work per request -- Kubernetes hits them every few
+/// seconds and a probe that shells out or scans `/proc` inline would both add
+/// latency and change what it measures under load. So polling happens once,
+/// centrally, and every reader sees the last snapshot.
+pub struct HealthState {
+    /// The `enshrouded_server.exe` process exists.
+    process_up: AtomicBool,
+    /// Something is bound to the game port, i.e. players can connect.
+    port_bound: AtomicBool,
+    started_at: Instant,
+    game_port: u16,
+    query_port: u16,
+}
+
+impl HealthState {
+    pub fn new(game_port: u16, query_port: u16) -> Self {
+        Self {
+            process_up: AtomicBool::new(false),
+            port_bound: AtomicBool::new(false),
+            started_at: Instant::now(),
+            game_port,
+            query_port,
+        }
+    }
+
+    /// Liveness: the server process is up. A false here means the container
+    /// should be restarted -- the process died and isn't coming back on its
+    /// own.
+    pub fn is_alive(&self) -> bool {
+        self.process_up.load(Ordering::Relaxed)
+    }
+
+    /// Readiness: the game port is accepting connections, so it's worth
+    /// sending players here. False during the (long) startup and world-load
+    /// phase, and again across a restart.
+    pub fn is_ready(&self) -> bool {
+        self.port_bound.load(Ordering::Relaxed)
+    }
+
+    pub fn uptime_seconds(&self) -> u64 {
+        self.started_at.elapsed().as_secs()
+    }
+
+    pub const fn game_port(&self) -> u16 {
+        self.game_port
+    }
+
+    pub const fn query_port(&self) -> u16 {
+        self.query_port
+    }
+}
 
 /// Best-effort guess at the address players should use to reach this server.
 ///
@@ -59,31 +120,78 @@ fn port_bound(port: u16) -> bool {
     in_use(UdpSocket::bind(("0.0.0.0", port))) || in_use(UdpSocket::bind(("::", port)))
 }
 
-/// Polls the game port on an interval and logs liveness transitions.
+/// Whether a process whose command line mentions `needle` is running.
+///
+/// Walks `/proc` directly rather than pulling in a process-listing crate:
+/// `gsm-instance`'s own `ServerProcess` isn't re-exported, and the one thing
+/// we need here -- "does any process mention enshrouded_server.exe" -- is a
+/// handful of lines. The game runs under Proton, so the match has to be
+/// against the *command line* (the Linux-visible process name is Proton's
+/// wrapper, not the Windows executable).
+fn process_matching(needle: &str) -> bool {
+    let Ok(entries) = std::fs::read_dir("/proc") else {
+        return false;
+    };
+
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        // /proc contains plenty of non-pid entries; a non-numeric name is one.
+        if !path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n.bytes().all(|b| b.is_ascii_digit()))
+        {
+            continue;
+        }
+
+        if cmdline_contains(&path.join("cmdline"), needle) {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn cmdline_contains(cmdline: &Path, needle: &str) -> bool {
+    // cmdline is NUL-separated; replacing the separators keeps argv boundaries
+    // from hiding a match that spans them.
+    std::fs::read(cmdline).is_ok_and(|raw| {
+        String::from_utf8_lossy(&raw)
+            .replace('\0', " ")
+            .to_ascii_lowercase()
+            .contains(&needle.to_ascii_lowercase())
+    })
+}
+
+/// Polls the server on an interval, updating `state` and logging transitions.
 ///
 /// Every check is logged at debug (own target, so it doesn't spam the normal
 /// info-level output). The moment the port is first seen accepting
 /// connections, an info-level line is logged with a `steam://connect` URL the
 /// user can hand straight to their Steam client to join.
-pub async fn run_liveness_check(game_port: u16) {
+pub async fn run_health_poller(state: Arc<HealthState>) {
     let host = detect_host_ip();
-    let mut accepting = false;
-    let mut interval = tokio::time::interval(Duration::from_secs(5));
+    let game_port = state.game_port();
+    let mut interval = tokio::time::interval(POLL_INTERVAL);
 
     loop {
         interval.tick().await;
-        let alive = port_bound(game_port);
 
-        match (alive, accepting) {
+        let was_ready = state.is_ready();
+        let alive = port_bound(game_port);
+        state.port_bound.store(alive, Ordering::Relaxed);
+        state
+            .process_up
+            .store(process_matching("enshrouded_server.exe"), Ordering::Relaxed);
+
+        match (alive, was_ready) {
             (true, false) => {
-                accepting = true;
                 info!(
                     target: LOG_TARGET,
                     "🎮 Game is accepting connections! Launch it with: steam://connect/{host}:{game_port}"
                 );
             }
             (false, true) => {
-                accepting = false;
                 warn!(
                     target: LOG_TARGET,
                     "Game port {game_port} is no longer accepting connections"
@@ -96,5 +204,35 @@ pub async fn run_liveness_check(game_port: u16) {
                 debug!(target: LOG_TARGET, "Health check: game port {game_port} not yet accepting connections");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn port_bound_reports_a_socket_we_hold() {
+        let socket = UdpSocket::bind("0.0.0.0:0").expect("bind an ephemeral port");
+        let port = socket.local_addr().expect("local addr").port();
+        assert!(port_bound(port));
+        drop(socket);
+        assert!(!port_bound(port));
+    }
+
+    #[test]
+    fn process_matching_finds_this_test_binary_and_not_nonsense() {
+        // Our own cmdline is in /proc, so a substring of it must match.
+        assert!(process_matching("enshrouded"));
+        assert!(!process_matching("definitely-not-a-running-process-xyzzy"));
+    }
+
+    #[test]
+    fn health_state_starts_down() {
+        let state = HealthState::new(15636, 15637);
+        assert!(!state.is_alive());
+        assert!(!state.is_ready());
+        assert_eq!(state.game_port(), 15636);
+        assert_eq!(state.query_port(), 15637);
     }
 }
