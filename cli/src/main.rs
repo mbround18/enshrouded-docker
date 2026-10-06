@@ -5,6 +5,7 @@ mod utils;
 use crate::environment::name;
 use clap::{Parser, Subcommand};
 use gsm_cron::{begin_cron_loop, register_job};
+use gsm_instance::config::LaunchMode;
 use gsm_instance::{Instance, InstanceConfig};
 use gsm_monitor::LogRules;
 use gsm_notifications::notifications::{StandardServerEvents, send_notifications};
@@ -137,6 +138,12 @@ async fn main() {
         launch_args: vec![],
         force_windows: true,
         working_dir: PathBuf::from("/home/steam/enshrouded"),
+        // Describes how gsm would launch the server itself. We don't let it:
+        // every start here goes through `start_server_via_proton` below, for
+        // the reasons in its comment. Declared truthfully anyway so the two
+        // don't disagree if that ever changes.
+        launch_mode: LaunchMode::Proton,
+        skip_validate: false,
     };
     debug!("Instance configuration set: {:?}", instance_config);
 
@@ -228,7 +235,7 @@ async fn main() {
             }
 
             // Start monitoring the instance log files.
-            gsm_monitor::start_instance_log_monitor(working_dir.clone(), rules.clone());
+            gsm_monitor::start_instance_log_monitor(&working_dir, rules.clone());
 
             // The session log is written to `enshrouded_server.log`, not to the
             // `server.log`/`server.err` pair that `start_instance_log_monitor`
