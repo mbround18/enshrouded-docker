@@ -28,12 +28,19 @@ sudo chown -R steam:steam /home/steam/enshrouded 2>/dev/null || true
 # such hook, so we start one here. Starting a second server on a display that
 # is already taken just fails and leaves the working one alone, but it buries
 # a real error in noise, so check rather than race.
+#
+# DISPLAY is exported either way so everything downstream agrees on which
+# display exists. Without it `enshrouded setup` sees DISPLAY unset on the wine
+# image and falls back to :1, pointing the server at a display nothing ever
+# started while Xvfb sat on :0.
+export DISPLAY="${DISPLAY:-:0}"
+
 XVFB_PID=""
 if [ -s /tmp/xvfb.pid ] && kill -0 "$(cat /tmp/xvfb.pid)" 2>/dev/null; then
-  echo "🖥️ Virtual display already running on ${DISPLAY:-:0} (pid $(cat /tmp/xvfb.pid))"
+  echo "🖥️ Virtual display already running on ${DISPLAY} (pid $(cat /tmp/xvfb.pid))"
 else
-  echo "🖥️ Starting virtual display on ${DISPLAY:-:0}..."
-  Xvfb "${DISPLAY:-:0}" -screen 0 1024x768x16 &
+  echo "🖥️ Starting virtual display on ${DISPLAY}..."
+  Xvfb "${DISPLAY}" -screen 0 1024x768x16 &
   XVFB_PID=$!
 fi
 
