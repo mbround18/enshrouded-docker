@@ -1,9 +1,9 @@
+use flate2::read::GzDecoder;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use tracing::{debug, info, error};
-use flate2::read::GzDecoder;
 use tar::Archive;
+use tracing::{debug, error, info};
 
 /// Initialize runtime environment: directories, permissions, and environment variables
 pub fn initialize_runtime(game_root: &Path) -> Result<(), Box<dyn std::error::Error>> {
@@ -45,7 +45,7 @@ fn create_directory_if_needed(path: &Path) -> Result<(), Box<dyn std::error::Err
 /// Setup WINE environment variables
 fn setup_wine_environment() -> Result<(), Box<dyn std::error::Error>> {
     debug!("Setting up WINE environment");
-    
+
     // Set WINEPREFIX
     if std::env::var("WINEPREFIX").is_err() {
         unsafe {
@@ -128,9 +128,7 @@ fn setup_steam_client_symlinks() -> Result<(), Box<dyn std::error::Error>> {
 
 /// Clean up cache directories
 fn cleanup_cache() -> Result<(), Box<dyn std::error::Error>> {
-    let cache_paths = vec![
-        "/home/steam/.cache",
-    ];
+    let cache_paths = vec!["/home/steam/.cache"];
 
     for cache_path in cache_paths {
         if Path::new(cache_path).exists() {
@@ -146,7 +144,7 @@ fn cleanup_cache() -> Result<(), Box<dyn std::error::Error>> {
 pub fn setup_proton() -> Result<(), Box<dyn std::error::Error>> {
     let proton_path = PathBuf::from("/home/steam/.proton");
     let proton_binary = proton_path.join("proton");
-    
+
     // Check if Proton is already installed and functional
     if proton_binary.exists() {
         debug!("Proton already installed at {:?}", proton_path);
@@ -190,57 +188,67 @@ struct GitHubAsset {
 fn fetch_latest_proton_ge_release() -> Result<GitHubRelease, Box<dyn std::error::Error>> {
     debug!("Fetching latest Proton-GE release from GitHub");
     let url = "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest";
-    
+
     let client = reqwest::blocking::Client::new();
     let response = client
         .get(url)
         .header("User-Agent", "enshrouded-docker")
         .send()?;
-    
+
     let release: GitHubRelease = response.json()?;
     Ok(release)
 }
 
 /// Download and extract Proton-GE to the installation path
-fn download_and_extract_proton_ge(release: &GitHubRelease, install_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+fn download_and_extract_proton_ge(
+    release: &GitHubRelease,
+    install_path: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Find the x86_64 tar.gz asset (releases also ship an incompatible aarch64 build)
-    let asset = release.assets
+    let asset = release
+        .assets
         .iter()
         .find(|a| a.name.ends_with("-x86_64.tar.gz"))
         .ok_or("No x86_64 tar.gz asset found in release")?;
-    
+
     info!("Downloading {}", asset.name);
     debug!("URL: {}", asset.browser_download_url);
-    
+
     let client = reqwest::blocking::Client::new();
     let response = client
         .get(&asset.browser_download_url)
         .header("User-Agent", "enshrouded-docker")
         .send()?;
-    
+
     // Create a temporary file for the tarball
     let temp_tar = std::env::temp_dir().join(&asset.name);
     let mut file = fs::File::create(&temp_tar)?;
     let mut content = std::io::Cursor::new(response.bytes()?);
     std::io::copy(&mut content, &mut file)?;
-    
+
     // Extract the tarball
     info!("Extracting to {:?}", install_path);
     let tar_gz = fs::File::open(&temp_tar)?;
     let tar = GzDecoder::new(tar_gz);
     let mut archive = Archive::new(tar);
-    
+
     // Extract and move to final location
     let extract_path = std::env::temp_dir().join("proton-extract");
     fs::create_dir_all(&extract_path)?;
     archive.unpack(&extract_path)?;
-    
+
     // Find the proton directory (usually named GE-Proton*)
     let entries = fs::read_dir(&extract_path)?;
     for entry in entries {
         let entry = entry?;
         let path = entry.path();
-        if path.is_dir() && path.file_name().unwrap().to_string_lossy().contains("Proton") {
+        if path.is_dir()
+            && path
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .contains("Proton")
+        {
             // Move contents to install_path
             for item in fs::read_dir(&path)? {
                 let item = item?;
@@ -256,11 +264,11 @@ fn download_and_extract_proton_ge(release: &GitHubRelease, install_path: &Path) 
             break;
         }
     }
-    
+
     // Cleanup
     fs::remove_file(&temp_tar).ok();
     fs::remove_dir_all(&extract_path).ok();
-    
+
     Ok(())
 }
 
@@ -272,7 +280,7 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), Box<dyn std::error::Error>
         let path = entry.path();
         let file_name = entry.file_name();
         let dest_path = dst.join(&file_name);
-        
+
         if path.is_dir() {
             copy_dir_all(&path, &dest_path)?;
         } else {
@@ -294,7 +302,7 @@ pub fn create_steam_appid(game_dir: &Path, app_id: u32) -> Result<(), Box<dyn st
 pub fn setup_proton_env() -> Result<(), Box<dyn std::error::Error>> {
     let proton_data = PathBuf::from("/home/steam/.proton_data");
     let proton_steam = PathBuf::from("/home/steam/.steam/steam");
-    
+
     create_directory_if_needed(&proton_data)?;
     create_directory_if_needed(&proton_steam)?;
 
@@ -403,7 +411,10 @@ pub fn print_system_info() {
     use std::process::Command;
 
     info!("──────────────────────────────────────────────────────────");
-    info!("🚀 Enshrouded Docker - {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"));
+    info!(
+        "🚀 Enshrouded Docker - {}",
+        chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+    );
     info!("──────────────────────────────────────────────────────────");
 
     // Hostname
