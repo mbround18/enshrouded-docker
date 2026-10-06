@@ -1,8 +1,6 @@
-use flate2::read::GzDecoder;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use tar::Archive;
 use tracing::{debug, error, info};
 
 /// Initialize runtime environment: directories, permissions, and environment variables
@@ -19,9 +17,6 @@ pub fn initialize_runtime(game_root: &Path) -> Result<(), Box<dyn std::error::Er
     // Link the steam user's own steamclient.so into ~/.steam/sdk32|64 (see
     // setup_steam_client_symlinks for why this can't be done at image build time)
     setup_steam_client_symlinks()?;
-
-    // Install Proton if not already installed
-    setup_proton()?;
 
     // Cleanup cache
     cleanup_cache()?;
@@ -140,156 +135,6 @@ fn cleanup_cache() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Install/setup Proton-GE for game server execution
-pub fn setup_proton() -> Result<(), Box<dyn std::error::Error>> {
-    let proton_path = PathBuf::from("/home/steam/.proton");
-    let proton_binary = proton_path.join("proton");
-
-    // Check if Proton is already installed and functional
-    if proton_binary.exists() {
-        debug!("Proton already installed at {:?}", proton_path);
-        return Ok(());
-    }
-
-    info!("📦 Installing Proton-GE from GitHub...");
-    create_directory_if_needed(&proton_path)?;
-
-    // Fetch the latest Proton-GE release
-    let release = fetch_latest_proton_ge_release()?;
-    info!("Found Proton-GE release: {}", release.tag_name);
-
-    // Download and extract
-    download_and_extract_proton_ge(&release, &proton_path)?;
-
-    // Make proton binary executable
-    if proton_binary.exists() {
-        make_executable(proton_binary.to_str().unwrap())?;
-        info!("✅ Proton-GE ({}) installed successfully", release.tag_name);
-        return Ok(());
-    }
-
-    Err("Failed to extract Proton-GE binary".into())
-}
-
-/// GitHub release metadata
-#[derive(serde::Deserialize)]
-struct GitHubRelease {
-    tag_name: String,
-    assets: Vec<GitHubAsset>,
-}
-
-#[derive(serde::Deserialize)]
-struct GitHubAsset {
-    name: String,
-    browser_download_url: String,
-}
-
-/// Fetch the latest Proton-GE release from GitHub
-fn fetch_latest_proton_ge_release() -> Result<GitHubRelease, Box<dyn std::error::Error>> {
-    debug!("Fetching latest Proton-GE release from GitHub");
-    let url = "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest";
-
-    let client = reqwest::blocking::Client::new();
-    let response = client
-        .get(url)
-        .header("User-Agent", "enshrouded-docker")
-        .send()?;
-
-    let release: GitHubRelease = response.json()?;
-    Ok(release)
-}
-
-/// Download and extract Proton-GE to the installation path
-fn download_and_extract_proton_ge(
-    release: &GitHubRelease,
-    install_path: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
-    // Find the x86_64 tar.gz asset (releases also ship an incompatible aarch64 build)
-    let asset = release
-        .assets
-        .iter()
-        .find(|a| a.name.ends_with("-x86_64.tar.gz"))
-        .ok_or("No x86_64 tar.gz asset found in release")?;
-
-    info!("Downloading {}", asset.name);
-    debug!("URL: {}", asset.browser_download_url);
-
-    let client = reqwest::blocking::Client::new();
-    let response = client
-        .get(&asset.browser_download_url)
-        .header("User-Agent", "enshrouded-docker")
-        .send()?;
-
-    // Create a temporary file for the tarball
-    let temp_tar = std::env::temp_dir().join(&asset.name);
-    let mut file = fs::File::create(&temp_tar)?;
-    let mut content = std::io::Cursor::new(response.bytes()?);
-    std::io::copy(&mut content, &mut file)?;
-
-    // Extract the tarball
-    info!("Extracting to {:?}", install_path);
-    let tar_gz = fs::File::open(&temp_tar)?;
-    let tar = GzDecoder::new(tar_gz);
-    let mut archive = Archive::new(tar);
-
-    // Extract and move to final location
-    let extract_path = std::env::temp_dir().join("proton-extract");
-    fs::create_dir_all(&extract_path)?;
-    archive.unpack(&extract_path)?;
-
-    // Find the proton directory (usually named GE-Proton*)
-    let entries = fs::read_dir(&extract_path)?;
-    for entry in entries {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir()
-            && path
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .contains("Proton")
-        {
-            // Move contents to install_path
-            for item in fs::read_dir(&path)? {
-                let item = item?;
-                let item_path = item.path();
-                let dest = install_path.join(item.file_name());
-                if item_path.is_dir() {
-                    fs::create_dir_all(&dest)?;
-                    copy_dir_all(&item_path, &dest)?;
-                } else {
-                    fs::copy(&item_path, &dest)?;
-                }
-            }
-            break;
-        }
-    }
-
-    // Cleanup
-    fs::remove_file(&temp_tar).ok();
-    fs::remove_dir_all(&extract_path).ok();
-
-    Ok(())
-}
-
-/// Recursively copy a directory
-fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    fs::create_dir_all(dst)?;
-    for entry in fs::read_dir(src)? {
-        let entry = entry?;
-        let path = entry.path();
-        let file_name = entry.file_name();
-        let dest_path = dst.join(&file_name);
-
-        if path.is_dir() {
-            copy_dir_all(&path, &dest_path)?;
-        } else {
-            fs::copy(&path, &dest_path)?;
-        }
-    }
-    Ok(())
-}
-
 /// Create steam_appid.txt in game directory to prevent Steam ownership checks
 pub fn create_steam_appid(game_dir: &Path, app_id: u32) -> Result<(), Box<dyn std::error::Error>> {
     let appid_file = game_dir.join("steam_appid.txt");
@@ -299,9 +144,21 @@ pub fn create_steam_appid(game_dir: &Path, app_id: u32) -> Result<(), Box<dyn st
 }
 
 /// Setup Proton environment variables for running a game server
+/// Fill in the Proton variables the base image hasn't already set, and make
+/// sure the directories they name exist.
+///
+/// The base image's `20-proton-init.sh` exports `STEAM_COMPAT_DATA_PATH`,
+/// `STEAM_COMPAT_CLIENT_INSTALL_PATH` and `WINEPREFIX` before handing control
+/// to our entrypoint, so we defer to those rather than overwriting them --
+/// pointing the compat data path somewhere else than the prefix the base
+/// already initialized would mean Proton building a second one from scratch.
+/// The defaults here are only for running outside that image.
 pub fn setup_proton_env() -> Result<(), Box<dyn std::error::Error>> {
-    let proton_data = PathBuf::from("/home/steam/.proton_data");
-    let proton_steam = PathBuf::from("/home/steam/.steam/steam");
+    let proton_data = env_path_or("STEAM_COMPAT_DATA_PATH", "/home/steam/.proton");
+    let proton_steam = env_path_or(
+        "STEAM_COMPAT_CLIENT_INSTALL_PATH",
+        "/home/steam/.steam/steam",
+    );
 
     create_directory_if_needed(&proton_data)?;
     create_directory_if_needed(&proton_steam)?;
@@ -327,14 +184,60 @@ pub fn setup_proton_env() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Get the path to the Proton executable
-pub fn get_proton_executable() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let proton_path = PathBuf::from("/home/steam/.proton/proton");
-    if proton_path.exists() {
-        Ok(proton_path)
-    } else {
-        Err("Proton not found. Run 'setup' command first.".into())
+/// Read `var` as a path, falling back to `default` when it is unset or empty.
+fn env_path_or(var: &str, default: &str) -> PathBuf {
+    match std::env::var(var) {
+        Ok(value) if !value.trim().is_empty() => PathBuf::from(value),
+        _ => PathBuf::from(default),
     }
+}
+
+/// Locate the Proton executable installed in the base image.
+///
+/// `PROTON_PATH` is the base image's own answer to this question, recomputed at
+/// runtime by `20-proton-init.sh` and exported to us, so it wins. It is not
+/// trusted blindly though: the image also ships a *build-time* `ENV PROTON_PATH`
+/// pointing at `.steam/steam/compatibilitytools.d/current/proton`, a path that
+/// does not exist, and that stale value is what a container sees if anything
+/// bypasses the base entrypoint. So the variable is used only when it actually
+/// resolves to a file, and otherwise we look where `dockerify install proton`
+/// puts things -- preferring the `current` symlink, which tracks the pinned
+/// version, over whichever `GE-Proton*` directory happens to sort last.
+pub fn get_proton_executable() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    if let Some(from_env) = std::env::var_os("PROTON_PATH") {
+        let candidate = PathBuf::from(from_env);
+        if candidate.is_file() {
+            debug!("Using Proton from PROTON_PATH: {:?}", candidate);
+            return Ok(candidate);
+        }
+        debug!("Ignoring PROTON_PATH={candidate:?}: not a file");
+    }
+
+    let compat_dir = PathBuf::from("/home/steam/.steam/root/compatibilitytools.d");
+    let current = compat_dir.join("current").join("proton");
+    if current.is_file() {
+        debug!("Using Proton from {:?}", current);
+        return Ok(current);
+    }
+
+    if let Ok(entries) = fs::read_dir(&compat_dir) {
+        let mut found: Vec<PathBuf> = entries
+            .filter_map(Result::ok)
+            .map(|entry| entry.path().join("proton"))
+            .filter(|path| path.is_file())
+            .collect();
+        found.sort();
+        if let Some(path) = found.pop() {
+            debug!("Using Proton from {:?}", path);
+            return Ok(path);
+        }
+    }
+
+    Err(format!(
+        "Proton not found. Looked at $PROTON_PATH and under {}.",
+        compat_dir.display()
+    )
+    .into())
 }
 
 /// Spawn the server under Proton as a background process, redirecting output to
