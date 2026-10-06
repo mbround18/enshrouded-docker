@@ -10,7 +10,8 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 tracing = "0.1.44"
 tracing-subscriber = "0.3.22"
-tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread", "macros"] }
+tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread", "macros", "net"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
 regex = "1.12.3"
 lazy_static = "1.5.0"
 chrono = { version = "0.4.43", features = ["serde"] }
@@ -34,3 +35,4 @@ env-parse = { git = "https://github.com/mbround18/game-server-management.git", p
 
 [dev-dependencies]
 tempfile = "3.25.0"
+tower = { version = "0.5", features = ["util"] }

@@ -55,6 +55,13 @@ enum Commands {
         #[arg(long)]
         check: bool,
     },
+    /// Probe this container's own health endpoint; exits non-zero when
+    /// unhealthy. Used by the image's HEALTHCHECK.
+    Health {
+        /// Which probe to query: `health`, `live`, or `ready`.
+        #[arg(long, default_value = "health")]
+        route: String,
+    },
 }
 
 #[tokio::main]
@@ -112,7 +119,7 @@ async fn main() {
         Commands::Setup { path } => {
             info!("Setting up runtime environment");
             utils::setup::print_system_info();
-            
+
             match utils::setup::initialize_runtime(&path) {
                 Ok(_) => {
                     setup_configuration(&path);
@@ -194,13 +201,25 @@ async fn main() {
             // Start monitoring the instance log files.
             gsm_monitor::start_instance_log_monitor(working_dir.clone(), rules);
 
-            // Poll the game port for liveness, logged separately (target
-            // "health") from the instance log monitor above.
-            let game_port = {
+            // Poll the game port and server process for liveness, logged
+            // separately (target "health") from the instance log monitor
+            // above, and surface the result over HTTP for orchestrator probes.
+            let health_state = {
                 let config_path = working_dir.join("enshrouded_server.json");
-                game_settings::load_or_create_config(&config_path).game_port as u16
+                let config = game_settings::load_or_create_config(&config_path);
+                Arc::new(utils::health::HealthState::new(
+                    config.game_port as u16,
+                    config.query_port,
+                ))
             };
-            tokio::spawn(utils::health::run_liveness_check(game_port));
+            tokio::spawn(utils::health::run_health_poller(Arc::clone(&health_state)));
+
+            match utils::http::configured_port() {
+                Some(port) => {
+                    tokio::spawn(utils::http::serve(Arc::clone(&health_state), port));
+                }
+                None => debug!("Health endpoints disabled (HTTP_PORT=0)"),
+            }
 
             if update_job || is_env_var_truthy("AUTO_UPDATE") {
                 debug!("Auto-update job condition met.");
@@ -336,5 +355,13 @@ async fn main() {
                 }
             }
         }
+        Commands::Health { route } => match utils::http::probe_locally(&route) {
+            Ok(true) => exit(0),
+            Ok(false) => exit(1),
+            Err(e) => {
+                error!("{e}");
+                exit(1);
+            }
+        },
     }
 }

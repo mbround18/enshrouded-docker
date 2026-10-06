@@ -16,7 +16,9 @@ Welcome to the ultimate Enshrouded Server toolkit! This guide details how to dep
   - [Game Settings](#game-settings)
   - [User Group Overrides](#user-group-overrides)
 - [Docker Compose Setup](#docker-compose-setup)
+- [Health Checks, Liveness & Readiness](#health-checks-liveness--readiness)
 - [Updating Server Settings](#updating-server-settings)
+- [Editing `enshrouded_server.json` by Hand](#editing-enshrouded_serverjson-by-hand)
 - [Contributions](#contributions)
 
 ---
@@ -145,6 +147,7 @@ These variables control the overall server configuration:
 | `GAME_SETTINGS_PRESET`       | Game settings preset. **Must be `Custom` for any `Game Settings` overrides below to take effect**                                                                                                              | `Default`                | `Custom`                      |
 | `PUID`                       | UID the `steam` user runs as inside the container — match it to the owner of your mounted volume to avoid permission errors                                                                                    | `1000`                   | `1000`                        |
 | `PGID`                       | GID the `steam` user runs as inside the container — match it to the owner of your mounted volume to avoid permission errors                                                                                    | `1000`                   | `1000`                        |
+| `HTTP_PORT`                  | Port for the liveness/readiness endpoints (`/live`, `/ready`, `/health`). Set to `0` to disable. [See the guide.](./docs/health-checks.md)                                                       | `3000`                   | `8080`                        |
 | `RUST_LOG`                   | Log verbosity for the CLI (`error`, `warn`, `info`, `debug`, `trace`)                                                                                                                                           | `info`                   | `debug`                       |
 
 ### Game Settings
@@ -187,19 +190,29 @@ The in-game configuration parameters are now env configurable. Use environment v
 | `BOSS_HEALTH_FACTOR`                   | float  | `1.0`                  | `2.0`            |
 | `THREAT_BONUS`                         | float  | `1.0`                  | `1.2`            |
 | `PACIFY_ALL_ENEMIES`                   | bool   | `false`                | `true`           |
-| `TAMING_STARTLE_REPERUSSION`           | string | `LoseSomeProgress`     | `NoPenalty`      |
+| `TAMING_STARTLE_REPERCUSSION`           | string | `LoseSomeProgress`     | `NoPenalty`      |
 | `DAY_TIME_DURATION`                    | int    | `1800000000000`        | `1500000000000`  |
 | `NIGHT_TIME_DURATION`                  | int    | `720000000000`         | `600000000000`   |
+| `CURSE_MODIFIER`                       | string | `Normal`               | `Hard`           |
 
 ### User Group Overrides
 
 Override user group settings in your configuration by prefixing with `SET_GROUP_`, followed by the group name and field name:
 
-| Variable Pattern                               | Description                  | Example                                          |
-| ---------------------------------------------- | ---------------------------- | ------------------------------------------------ |
-| `SET_GROUP_<GROUPNAME>_PASSWORD`               | Overrides the group password | `SET_GROUP_ADMIN_PASSWORD: "secret"`             |
-| `SET_GROUP_<GROUPNAME>_CAN_KICK_BAN`           | Toggle kick/ban permission   | `SET_GROUP_ADMIN_CAN_KICK_BAN: "true"`           |
-| `SET_GROUP_<GROUPNAME>_CAN_ACCESS_INVENTORIES` | Toggle inventory access      | `SET_GROUP_ADMIN_CAN_ACCESS_INVENTORIES: "true"` |
+| Variable Pattern                               | Description                     | Example                                          |
+| ---------------------------------------------- | ------------------------------- | ------------------------------------------------ |
+| `SET_GROUP_<GROUPNAME>_PASSWORD`               | Overrides the group password    | `SET_GROUP_ADMIN_PASSWORD: "secret"`             |
+| `SET_GROUP_<GROUPNAME>_CAN_KICK_BAN`           | Toggle kick/ban permission      | `SET_GROUP_ADMIN_CAN_KICK_BAN: "true"`           |
+| `SET_GROUP_<GROUPNAME>_CAN_ACCESS_INVENTORIES` | Toggle inventory access         | `SET_GROUP_ADMIN_CAN_ACCESS_INVENTORIES: "true"` |
+| `SET_GROUP_<GROUPNAME>_CAN_EDIT_BASE`          | Toggle base editing             | `SET_GROUP_FRIEND_CAN_EDIT_BASE: "true"`         |
+| `SET_GROUP_<GROUPNAME>_CAN_EXTEND_BASE`        | Toggle base extending           | `SET_GROUP_FRIEND_CAN_EXTEND_BASE: "true"`       |
+| `SET_GROUP_<GROUPNAME>_RESERVED_SLOTS`         | Slots reserved for this group   | `SET_GROUP_ADMIN_RESERVED_SLOTS: "2"`            |
+
+The default config ships `Admin` and `Guest` groups, but `<GROUPNAME>` doesn't
+have to be one of them — naming a group that doesn't exist yet creates it, so
+`SET_GROUP_FRIEND_PASSWORD` gets you a `FRIEND` group with the default
+permissions. Group names with underscores work too
+(`SET_GROUP_MY_FRIENDS_PASSWORD` targets a group named `MY_FRIENDS`).
 
 ---
 
@@ -265,21 +278,45 @@ services:
       BOSS_HEALTH_FACTOR: "1.0"
       THREAT_BONUS: "1.0"
       PACIFY_ALL_ENEMIES: "false"
-      TAMING_STARTLE_REPERUSSION: "LoseSomeProgress"
+      TAMING_STARTLE_REPERCUSSION: "LoseSomeProgress"
       DAY_TIME_DURATION: "1800000000000"
       NIGHT_TIME_DURATION: "720000000000"
+      CURSE_MODIFIER: "Normal"
       # User Group Overrides (optional)
       SET_GROUP_ADMIN_PASSWORD: "YourAdminPassword"
       SET_GROUP_ADMIN_CAN_KICK_BAN: "true"
       SET_GROUP_ADMIN_CAN_ACCESS_INVENTORIES: "true"
+      SET_GROUP_ADMIN_RESERVED_SLOTS: "2"
+      # Health endpoints (optional)
+      HTTP_PORT: "3000"
     ports:
       - "15636:15636/udp"
       - "15636:15636/tcp"
       - "15637:15637/udp"
       - "15637:15637/tcp"
+      - "3000:3000/tcp" # /live, /ready, /health -- see docs/health-checks.md
     volumes:
       - ./data:/home/steam/enshrouded
 ```
+
+---
+
+## Health Checks, Liveness & Readiness
+
+The container serves liveness and readiness endpoints on `HTTP_PORT`
+(default `3000`) for Kubernetes, Docker, or your own monitoring:
+
+| Route                  | `200 OK` when                                  |
+| ---------------------- | ---------------------------------------------- |
+| `/live`, `/liveness`   | the server process is running                  |
+| `/ready`, `/readiness` | the game port is accepting connections         |
+| `/health`              | both of the above                              |
+
+A Docker `HEALTHCHECK` is built into the image already, so `docker ps` shows
+`healthy`/`unhealthy` with no setup on your part. Publish `3000:3000` in your
+compose file if you want to reach the endpoints from outside the container.
+
+**[Full guide, including a ready-to-use Kubernetes StatefulSet →](./docs/health-checks.md)**
 
 ---
 
@@ -298,6 +335,31 @@ To update your server settings after the initial setup:
    ```
 
 This process ensures that your server is always running with the latest configuration overrides.
+
+---
+
+## Editing `enshrouded_server.json` by Hand
+
+You can. Edit the file in your mounted volume and restart the container — your
+changes stick, including settings this project doesn't know about (new ones
+Enshrouded adds, or anything else you put in the file).
+
+Two rules decide what happens on each start:
+
+1. **An environment variable always wins** over the matching value in the
+   file. If you set `SLOT_COUNT: "8"` in your compose file and then hand-edit
+   `slotCount` to `16`, it goes back to `8` on the next restart. Remove the
+   variable from your compose file if you'd rather manage that setting by
+   hand.
+2. **Everything else is left alone.** Fields no environment variable covers
+   are never touched.
+
+If the file can't be parsed (a stray comma, a missing brace), the container
+says so in the logs and **leaves the file exactly as it is** rather than
+replacing it with defaults — fix the JSON and restart. Before any rewrite, the
+previous version is copied next to it as
+`enshrouded_server.bak.<timestamp>.json`, and the five most recent backups are
+kept.
 
 ---
 

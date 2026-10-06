@@ -1,8 +1,10 @@
 use crate::environment::name;
-use crate::utils::config_io::{load_config_with_defaults, save_config};
+use crate::utils::config_io::{Loaded, load_config, save_config};
 use crate::utils::env_overrides::apply_env_overrides;
 use env_parse::env_parse;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::BTreeMap;
 use std::path::Path;
 
 /// Represents game settings in the server configuration.
@@ -77,6 +79,18 @@ pub struct GameSettings {
     pub day_time_duration: u64,
     /// Nanoseconds for night time duration (default: 720_000_000_000)
     pub night_time_duration: u64,
+    /// Curse strength modifier (default: "Normal")
+    pub curse_modifier: String,
+
+    /// Every `gameSettings` key we don't model.
+    ///
+    /// Enshrouded adds settings faster than this project can track them, and
+    /// before this existed any such key was silently dropped the next time we
+    /// wrote the file back out -- the "my enshrouded_server.json keeps getting
+    /// overwritten" reports in #26/#31/#32/#33. Capturing the remainder here
+    /// means unrecognized settings survive a round trip untouched.
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, Value>,
 }
 
 impl Default for GameSettings {
@@ -116,6 +130,8 @@ impl Default for GameSettings {
             taming_startle_repercussion: "LoseSomeProgress".to_string(),
             day_time_duration: 1_800_000_000_000,
             night_time_duration: 720_000_000_000,
+            curse_modifier: "Normal".to_string(),
+            extra: BTreeMap::new(),
         }
     }
 }
@@ -127,6 +143,7 @@ macro_rules! env_field_mapping {
                 $(
                     $field: env_parse!($env_var, Self::default().$field, _),
                 )*
+                extra: BTreeMap::new(),
             }
         }
 
@@ -175,7 +192,8 @@ impl GameSettings {
         pacify_all_enemies => "PACIFY_ALL_ENEMIES",
         taming_startle_repercussion => "TAMING_STARTLE_REPERCUSSION",
         day_time_duration => "DAY_TIME_DURATION",
-        night_time_duration => "NIGHT_TIME_DURATION"
+        night_time_duration => "NIGHT_TIME_DURATION",
+        curse_modifier => "CURSE_MODIFIER"
     }
 }
 
@@ -199,6 +217,11 @@ pub struct UserGroup {
     pub can_edit_base: bool,
     pub can_extend_base: bool,
     pub reserved_slots: u8,
+
+    /// Any per-group key we don't model, preserved verbatim. See
+    /// [`GameSettings::extra`].
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, Value>,
 }
 
 /// Provides default values for a `UserGroup`.
@@ -220,6 +243,7 @@ impl Default for UserGroup {
             can_edit_base: true,
             can_extend_base: true,
             reserved_slots: 0,
+            extra: BTreeMap::new(),
         }
     }
 }
@@ -241,6 +265,11 @@ pub struct ServerConfig {
     pub game_settings: GameSettings,
     pub user_groups: Vec<UserGroup>,
     pub game_port: i32,
+
+    /// Any top-level key we don't model, preserved verbatim. See
+    /// [`GameSettings::extra`].
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, Value>,
 }
 
 macro_rules! server_env_field_mapping {
@@ -296,19 +325,28 @@ impl Default for ServerConfig {
                     can_edit_base: true,
                     can_extend_base: true,
                     reserved_slots: 0,
+                    extra: BTreeMap::new(),
                 },
                 UserGroup::default(),
             ],
+            extra: BTreeMap::new(),
         }
     }
 }
 
 /// Loads the configuration from a file or creates a new one with defaults.
-/// Environment variables override both file values and defaults.
+///
+/// Environment variables override both file values and defaults, but anything
+/// neither we nor an env var touches is left exactly as the operator wrote it
+/// -- including keys this struct doesn't model (see [`GameSettings::extra`]).
+/// If the file exists but can't be parsed it is never rewritten.
 pub fn load_or_create_config(path: &Path) -> ServerConfig {
     tracing::debug!("Loading config from path: {:?}", path);
 
-    let mut config = load_config_with_defaults::<ServerConfig>(path);
+    let loaded = load_config::<ServerConfig>(path);
+    let writable = loaded.is_writable();
+    let existed = !matches!(loaded, Loaded::Missing(_));
+    let mut config = loaded.into_config();
     tracing::debug!("Config loaded: {:?}", config.game_settings);
 
     let original_config = config.clone();
@@ -317,41 +355,19 @@ pub fn load_or_create_config(path: &Path) -> ServerConfig {
     apply_env_overrides(&mut config);
 
     let config_changed =
-        serde_json::to_string(&config).unwrap() != serde_json::to_string(&original_config).unwrap();
+        serde_json::to_string(&config).ok() != serde_json::to_string(&original_config).ok();
     tracing::debug!("Config changed after env overrides: {}", config_changed);
 
-    if path.exists() && config_changed {
-        let timestamp = chrono::Local::now().format("%Y-%m-%d-%H.%M.%S");
-        let backup_path = path.with_extension(format!("bak.{timestamp}.json"));
-        tracing::debug!("Creating backup at: {:?}", backup_path);
-        let _ = std::fs::copy(path, &backup_path);
+    if !writable {
+        tracing::warn!(
+            "Not writing {:?} because it could not be parsed; the file on disk is untouched.",
+            path
+        );
+        return config;
+    }
 
-        if let Some(parent) = path.parent() {
-            let prefix = path.file_stem().unwrap_or_default().to_string_lossy();
-            let mut backups: Vec<_> = std::fs::read_dir(parent)
-                .unwrap_or_else(|_| std::fs::read_dir(".").unwrap())
-                .filter_map(|entry| entry.ok())
-                .filter(|entry| {
-                    entry
-                        .file_name()
-                        .to_string_lossy()
-                        .starts_with(&format!("{prefix}.bak."))
-                        && entry.file_name().to_string_lossy().ends_with(".json")
-                })
-                .collect();
-
-            if backups.len() > 5 {
-                backups.sort_by_key(|entry| {
-                    entry
-                        .metadata()
-                        .and_then(|m| m.modified())
-                        .unwrap_or(std::time::UNIX_EPOCH)
-                });
-                for old_backup in backups.iter().take(backups.len() - 5) {
-                    let _ = std::fs::remove_file(old_backup.path());
-                }
-            }
-        }
+    if existed && config_changed {
+        backup_config(path);
     }
 
     tracing::debug!("Saving config to: {:?}", path);
@@ -359,6 +375,44 @@ pub fn load_or_create_config(path: &Path) -> ServerConfig {
 
     tracing::debug!("Config loading completed");
     config
+}
+
+/// Copies the current config aside before we rewrite it, keeping the five most
+/// recent copies.
+fn backup_config(path: &Path) {
+    let timestamp = chrono::Local::now().format("%Y-%m-%d-%H.%M.%S");
+    let backup_path = path.with_extension(format!("bak.{timestamp}.json"));
+    tracing::debug!("Creating backup at: {:?}", backup_path);
+    if let Err(e) = std::fs::copy(path, &backup_path) {
+        tracing::warn!("Failed to back up {:?}: {e}", path);
+        return;
+    }
+
+    let Some(parent) = path.parent() else { return };
+    let prefix = path.file_stem().unwrap_or_default().to_string_lossy();
+    let Ok(entries) = std::fs::read_dir(parent) else {
+        return;
+    };
+
+    let mut backups: Vec<_> = entries
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            let name = entry.file_name().to_string_lossy().to_string();
+            name.starts_with(&format!("{prefix}.bak.")) && name.ends_with(".json")
+        })
+        .collect();
+
+    if backups.len() > 5 {
+        backups.sort_by_key(|entry| {
+            entry
+                .metadata()
+                .and_then(|m| m.modified())
+                .unwrap_or(std::time::UNIX_EPOCH)
+        });
+        for old_backup in backups.iter().take(backups.len() - 5) {
+            let _ = std::fs::remove_file(old_backup.path());
+        }
+    }
 }
 
 #[cfg(test)]
@@ -515,7 +569,7 @@ mod tests {
         let json = serde_json::to_string_pretty(&config).unwrap();
         fs::write(&config_path, json).unwrap();
 
-        let loaded: GameSettings = load_config_with_defaults(&config_path);
+        let loaded: GameSettings = load_config(&config_path).into_config();
         assert_eq!(loaded.player_health_factor, 42.0);
 
         unsafe {
@@ -524,7 +578,7 @@ mod tests {
         let loaded2 = GameSettings::from_env();
         assert_eq!(loaded2.player_health_factor, 99.0);
 
-        let mut config2: GameSettings = load_config_with_defaults(&config_path);
+        let mut config2: GameSettings = load_config(&config_path).into_config();
         if let Ok(val) = std::env::var("PLAYER_HEALTH_FACTOR") {
             config2.player_health_factor = val.parse().unwrap();
         }
@@ -582,5 +636,109 @@ mod tests {
 
         assert_eq!(config.name, "Untouched");
         assert_eq!(config.game_port, 15636);
+    }
+
+    /// #26/#32/#33: keys this struct doesn't model used to be dropped the
+    /// first time we wrote the file back out, which is what operators saw as
+    /// "a portion of enshrouded_server.json keeps getting overwritten".
+    #[test]
+    fn test_unknown_keys_survive_a_round_trip() {
+        use tempfile::TempDir;
+
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        clear_env_vars();
+
+        let tmp_dir = TempDir::new().expect("create temp dir");
+        let config_path = tmp_dir.path().join("enshrouded_server.json");
+        fs::write(
+            &config_path,
+            r#"{
+              "name": "BoB",
+              "slotCount": 16,
+              "somethingKeenAddedLater": "keep me",
+              "gameSettings": {
+                "playerHealthFactor": 1,
+                "curseModifier": "Hard",
+                "brandNewSetting": 42
+              },
+              "userGroups": [
+                {
+                  "name": "FRIEND",
+                  "password": "P@ssword2",
+                  "reservedSlots": 8,
+                  "futureGroupField": true
+                }
+              ]
+            }"#,
+        )
+        .expect("write config");
+
+        load_or_create_config(&config_path);
+
+        let raw = fs::read_to_string(&config_path).expect("read config back");
+        let json: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
+
+        assert_eq!(json["somethingKeenAddedLater"], "keep me");
+        assert_eq!(json["gameSettings"]["brandNewSetting"], 42);
+        assert_eq!(json["gameSettings"]["curseModifier"], "Hard");
+        assert_eq!(json["userGroups"][0]["name"], "FRIEND");
+        assert_eq!(json["userGroups"][0]["password"], "P@ssword2");
+        assert_eq!(json["userGroups"][0]["reservedSlots"], 8);
+        assert_eq!(json["userGroups"][0]["futureGroupField"], true);
+    }
+
+    /// A config we can't parse must be left strictly alone rather than
+    /// replaced with defaults.
+    #[test]
+    fn test_unparseable_config_is_never_overwritten() {
+        use tempfile::TempDir;
+
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        clear_env_vars();
+
+        let tmp_dir = TempDir::new().expect("create temp dir");
+        let config_path = tmp_dir.path().join("enshrouded_server.json");
+        let broken = r#"{ "name": "BoB", "slotCount": 16, }"#; // trailing comma
+        fs::write(&config_path, broken).expect("write config");
+
+        load_or_create_config(&config_path);
+
+        assert_eq!(
+            fs::read_to_string(&config_path).expect("read config back"),
+            broken
+        );
+    }
+
+    /// #32: an env override for one field must not reset the operator's other
+    /// hand-edited values.
+    #[test]
+    fn test_env_override_leaves_unrelated_edits_alone() {
+        use tempfile::TempDir;
+
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        clear_env_vars();
+
+        let tmp_dir = TempDir::new().expect("create temp dir");
+        let config_path = tmp_dir.path().join("enshrouded_server.json");
+        let original = ServerConfig {
+            name: "Hand Edited".to_string(),
+            slot_count: 6,
+            game_settings_preset: "Custom".to_string(),
+            game_settings: GameSettings {
+                enemy_health_factor: 3.0,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        save_config(&config_path, &original);
+
+        unsafe { env::set_var("SLOT_COUNT", "12") };
+        let config = load_or_create_config(&config_path);
+        clear_env_vars();
+
+        assert_eq!(config.slot_count, 12, "env var should win");
+        assert_eq!(config.name, "Hand Edited");
+        assert_eq!(config.game_settings_preset, "Custom");
+        assert_eq!(config.game_settings.enemy_health_factor, 3.0);
     }
 }

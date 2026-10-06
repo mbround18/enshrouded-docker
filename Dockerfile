@@ -88,6 +88,14 @@ ENV LD_LIBRARY_PATH=/home/steam/.steam/sdk32:/home/steam/.steam/sdk64:/home/stea
 ENV PATH=/home/steam/.local/bin:/usr/local/share/enshrouded-config:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ENTRYPOINT ["/home/steam/scripts/entrypoint.sh"]
 
+# Liveness/readiness endpoints served by `enshrouded monitor` (HTTP_PORT, set
+# it to 0 to disable). The start period is deliberately generous: a first run
+# downloads the whole game through steamcmd before the server ever boots, and
+# a cold world load takes minutes on top of that.
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15m --retries=3 \
+    CMD ["/usr/local/bin/enshrouded", "health"]
+
 # Stage 4: Proton runtime - Self-contained final image with Proton-GE
 FROM base AS proton
 # Copy pre-downloaded Proton-GE
@@ -112,3 +120,11 @@ ENV HOME=/home/steam USER=steam
 ENV LD_LIBRARY_PATH=/home/steam/.steam/sdk32:/home/steam/.steam/sdk64:/home/steam/.steam/sdk32
 ENV PATH=/home/steam/.local/bin:/usr/local/share/enshrouded-config:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ENTRYPOINT ["/home/steam/scripts/entrypoint.sh"]
+
+# Liveness/readiness endpoints served by `enshrouded monitor` (HTTP_PORT, set
+# it to 0 to disable). The start period is deliberately generous: a first run
+# downloads the whole game through steamcmd before the server ever boots, and
+# a cold world load takes minutes on top of that.
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15m --retries=3 \
+    CMD ["/usr/local/bin/enshrouded", "health"]

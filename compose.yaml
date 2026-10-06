@@ -42,6 +42,8 @@ services:
       - "15636:15636/udp"
       - "15637:15637/tcp"
       - "15637:15637/udp"
+      # Liveness/readiness endpoints -- see docs/health-checks.md
+      - "3000:3000/tcp"
 
   proton:
     image: mbround18/enshrouded-docker:proton-latest
@@ -86,3 +88,5 @@ services:
       - "15636:15636/udp"
       - "15637:15637/tcp"
       - "15637:15637/udp"
+      # Liveness/readiness endpoints -- see docs/health-checks.md
+      - "3000:3000/tcp"
