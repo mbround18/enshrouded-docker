@@ -64,6 +64,35 @@ enum Commands {
     },
 }
 
+/// Attach a log monitor to the game's own session log, once that log exists.
+///
+/// On a first boot the file doesn't appear until steamcmd has finished
+/// downloading the game and the server has booted, which takes minutes, so
+/// this waits rather than giving up. It does say so out loud if the wait gets
+/// long: a silent wait here is indistinguishable from broken webhooks, which
+/// is the symptom that sent anyone looking in the first place.
+async fn monitor_game_log(game_log: PathBuf, rules: LogRules) {
+    const POLL_INTERVAL: Duration = Duration::from_millis(250);
+    const COMPLAIN_AFTER: Duration = Duration::from_secs(300);
+
+    let waiting_since = std::time::Instant::now();
+    let mut complained = false;
+
+    while !game_log.exists() {
+        if !complained && waiting_since.elapsed() >= COMPLAIN_AFTER {
+            warn!(
+                "Still waiting for {} after {} minutes. Webhook notifications stay silent until it appears.",
+                game_log.display(),
+                COMPLAIN_AFTER.as_secs() / 60
+            );
+            complained = true;
+        }
+        tokio::time::sleep(POLL_INTERVAL).await;
+    }
+
+    gsm_monitor::start_monitor_in_thread(game_log, rules);
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
@@ -201,21 +230,15 @@ async fn main() {
             // Start monitoring the instance log files.
             gsm_monitor::start_instance_log_monitor(working_dir.clone(), rules.clone());
 
-            // The session log is written to `enshrouded_server.log` not to `server.log`.
-            // Attach another monitor thread to `logs/enshrouded_server.log` in order to find
-            // the webhook events like "[Session] 'HostOnline' (up)!" and player join/leave.
-            {
-                let game_log_exists_retry_interval: Duration = Duration::from_millis(250);
-                let game_log = working_dir.join("logs").join("enshrouded_server.log");
-                let game_log_rules = rules.clone();
-                tokio::spawn(async move {
-                    while !game_log.exists() {
-                        // Wait for the file to be created on the first boot
-                        tokio::time::sleep(game_log_exists_retry_interval).await;
-                    }
-                    gsm_monitor::start_monitor_in_thread(game_log, game_log_rules);
-                });
-            }
+            // The session log is written to `enshrouded_server.log`, not to the
+            // `server.log`/`server.err` pair that `start_instance_log_monitor`
+            // watches: the server writes nothing to its own stdout, so every
+            // webhook trigger -- "[Session] 'HostOnline' (up)!" and the player
+            // join/leave lines -- lands only in the game's own log.
+            tokio::spawn(monitor_game_log(
+                working_dir.join("logs").join("enshrouded_server.log"),
+                rules.clone(),
+            ));
 
             // Poll the game port and server process for liveness, logged
             // separately (target "health") from the instance log monitor
