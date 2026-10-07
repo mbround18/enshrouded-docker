@@ -25,47 +25,9 @@ RUN mkdir -p ./cli/src && echo "fn main() {}" > ./cli/src/main.rs && cargo build
 COPY ./cli ./
 RUN cargo build --release
 
-# Stage 1: Wine runtime - Self-contained final image with Wine
-FROM mbround18/steamcmd:wine-${STEAMCMD_BASE_VERSION} AS wine
-USER root
-ARG DEBIAN_FRONTEND=noninteractive
-ENV WINEDEBUG=fixme-all
-
-# X11/Vulkan libraries the game needs under Wine. The wine base carries Wine
-# itself but not Xvfb or the wider X11 stack (only the proton base does), so
-# this runs for both final images.
-RUN --mount=type=bind,source=./scripts/docker/install-runtime-deps.sh,target=/tmp/install-runtime-deps.sh \
-    /bin/bash /tmp/install-runtime-deps.sh
-
-# Copy the binary from the `rust-build` stage
-COPY --from=rust-build /app/target/release/enshrouded /usr/local/bin/enshrouded
-
-# Copy entrypoint script with correct permissions
-COPY --chmod=0755 --chown=steam:steam scripts/ /home/steam/scripts/
-
-ENV ENSHROUDED_CONFIG_DIR=/usr/local/share/enshrouded-config
-RUN mkdir -p "${ENSHROUDED_CONFIG_DIR}"
-
-USER steam
-WORKDIR /home/steam
-ENV HOME=/home/steam USER=steam
-ENV PATH=/home/steam/.local/bin:/usr/local/share/enshrouded-config:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-# The base image owns ENTRYPOINT: it runs /opt/steamcmd-bases/scripts.d/* (Wine
-# prefix init, and on the proton image Xvfb plus Proton detection), persists the
-# environment those produce, then execs this command. Overriding ENTRYPOINT here
-# would skip all of it, so our script is the CMD instead.
-CMD ["/home/steam/scripts/entrypoint.sh"]
-
-# Liveness/readiness endpoints served by `enshrouded monitor` (HTTP_PORT, set
-# it to 0 to disable). The start period is deliberately generous: a first run
-# downloads the whole game through steamcmd before the server ever boots, and
-# a cold world load takes minutes on top of that.
-EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15m --retries=3 \
-    CMD ["/usr/local/bin/enshrouded", "health"]
-
-# Stage 2: Proton runtime - Self-contained final image with Proton-GE
+# Supported runtime: Proton only. The Wine target was removed after validation
+# showed the base image fails before the game installs and the first-boot path
+# never reaches a healthy ready state.
 FROM mbround18/steamcmd:proton-${STEAMCMD_BASE_VERSION} AS proton
 USER root
 ARG DEBIAN_FRONTEND=noninteractive
@@ -73,10 +35,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=bind,source=./scripts/docker/install-runtime-deps.sh,target=/tmp/install-runtime-deps.sh \
     /bin/bash /tmp/install-runtime-deps.sh
 
-# Copy the binary from the `rust-build` stage
 COPY --from=rust-build /app/target/release/enshrouded /usr/local/bin/enshrouded
-
-# Copy entrypoint script with correct permissions
 COPY --chmod=0755 --chown=steam:steam scripts/ /home/steam/scripts/
 
 ENV ENSHROUDED_CONFIG_DIR=/usr/local/share/enshrouded-config
@@ -86,9 +45,12 @@ USER steam
 WORKDIR /home/steam
 ENV HOME=/home/steam USER=steam
 ENV PATH=/home/steam/.local/bin:/usr/local/share/enshrouded-config:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV LAUNCH_MODE=proton
 
-# See the note on the wine stage: the base's ENTRYPOINT does the Proton setup
-# this image depends on, so we hand it a CMD rather than replacing it.
+# The base image owns ENTRYPOINT: it runs the Proton setup hooks that this
+# image depends on, persists the environment they generate, and then execs our
+# command. Overriding ENTRYPOINT here would skip all of that, so our script is
+# the CMD instead.
 CMD ["/home/steam/scripts/entrypoint.sh"]
 
 EXPOSE 3000

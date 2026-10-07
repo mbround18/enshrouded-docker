@@ -1,7 +1,9 @@
 # Backups
 
+> Runtime support: Proton is the only supported runtime for this project. The old Wine image was removed after cold-volume validation failed, so this guide assumes `mbround18/enshrouded-docker:proton-latest`. See [migration-notice.md](./migration-notice.md) before moving off older images.
+
 This adds a sidecar container that periodically zips up your save folder and
-prunes old backups, alongside either the `wine` or `proton` server image.
+prunes old backups, alongside the supported Proton server image.
 
 > Seeing `ValueError: Input folder does not exist or is not a directory.` in the
 > backup container's logs the first time you start everything is normal — it
@@ -14,7 +16,7 @@ Save this as `compose.yaml` in its own empty folder (e.g. `~/enshrouded-server/`
 ```yaml
 services:
   enshrouded:
-    image: mbround18/enshrouded-docker:proton-latest # or :wine-latest, see README
+    image: mbround18/enshrouded-docker:proton-latest
     stop_grace_period: 120s
     environment:
       TZ: "America/Los_Angeles"
