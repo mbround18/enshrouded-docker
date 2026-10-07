@@ -38,7 +38,7 @@ fn create_directory_if_needed(path: &Path) -> Result<(), Box<dyn std::error::Err
 }
 
 /// Setup WINE environment variables
-fn setup_wine_environment() -> Result<(), Box<dyn std::error::Error>> {
+pub fn setup_wine_environment() -> Result<(), Box<dyn std::error::Error>> {
     debug!("Setting up WINE environment");
 
     // Set WINEPREFIX
@@ -49,12 +49,21 @@ fn setup_wine_environment() -> Result<(), Box<dyn std::error::Error>> {
         debug!("Set WINEPREFIX=/home/steam/.wine");
     }
 
+    // Set XDG_RUNTIME_DIR for Wine/Proton to use, matching the base image's
+    // runtime expectations.
+    if std::env::var("XDG_RUNTIME_DIR").is_err() {
+        unsafe {
+            std::env::set_var("XDG_RUNTIME_DIR", "/tmp/runtime-steam");
+        }
+        debug!("Set XDG_RUNTIME_DIR=/tmp/runtime-steam");
+    }
+
     // Set DISPLAY
     if std::env::var("DISPLAY").is_err() {
         unsafe {
-            std::env::set_var("DISPLAY", ":1");
+            std::env::set_var("DISPLAY", ":0");
         }
-        debug!("Set DISPLAY=:1");
+        debug!("Set DISPLAY=:0");
     }
 
     Ok(())

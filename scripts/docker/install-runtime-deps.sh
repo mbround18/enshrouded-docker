@@ -5,12 +5,11 @@ set -euo pipefail
 # Runtime libraries the Enshrouded server needs on top of whatever the
 # steamcmd-bases image already provides.
 #
-# The bases own steamcmd, the `steam` user, the locale/timezone setup, Wine and
-# the Proton-GE install, so none of that is repeated here. What they don't carry
-# is the wider X11/Vulkan stack: the proton base has Xvfb, Vulkan and freetype,
-# but the wine base has none of them, and neither has the libX* set that the
-# game's own windowing code links against. This script runs in both final
-# stages, so anything already present is simply a no-op for apt.
+# The base owns steamcmd, the `steam` user, the locale/timezone setup and the
+# Proton-GE install, so none of that is repeated here. What it doesn't carry is
+# the wider X11/Vulkan stack that the game's own windowing code links against.
+# This script runs in the final Proton stage, so anything already present is a
+# no-op for apt.
 install_packages() {
   apt-get update
   apt-get install -y -qq --no-install-recommends \
