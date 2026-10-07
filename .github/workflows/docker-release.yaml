@@ -49,8 +49,6 @@ jobs:
         include:
           - flavor: proton
             target: proton
-          - flavor: wine
-            target: wine
     steps:
       - uses: actions/checkout@v7
         with:

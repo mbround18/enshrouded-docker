@@ -2,19 +2,14 @@
 
 set -euo pipefail
 
-setup_timezone() {
-  ln -snf "/usr/share/zoneinfo/${TZ:-UTC}" /etc/localtime
-  echo "${TZ:-UTC}" >/etc/timezone
-}
-
-cleanup_existing_user() {
-  local existing_user
-  existing_user=$(getent passwd "${PUID:-1000}" | cut -d: -f1 || true)
-  if [[ -n "$existing_user" && "$existing_user" != "steam" ]]; then
-    userdel "$existing_user"
-  fi
-}
-
+# Runtime libraries the Enshrouded server needs on top of whatever the
+# steamcmd-bases image already provides.
+#
+# The base owns steamcmd, the `steam` user, the locale/timezone setup and the
+# Proton-GE install, so none of that is repeated here. What it doesn't carry is
+# the wider X11/Vulkan stack that the game's own windowing code links against.
+# This script runs in the final Proton stage, so anything already present is a
+# no-op for apt.
 install_packages() {
   apt-get update
   apt-get install -y -qq --no-install-recommends \
@@ -26,8 +21,6 @@ install_packages() {
     g++ \
     gdb \
     netcat-traditional \
-    cron \
-    tzdata \
     python3 \
     xvfb \
     dbus \
@@ -51,6 +44,7 @@ install_packages() {
     libxcursor1 \
     libxdamage1 \
     libxinerama1 \
+    libxkbcommon0 \
     libnss3 \
     libasound2-dev \
     libx11-xcb1 \
@@ -60,16 +54,8 @@ install_packages() {
   rm -rf /var/lib/apt/lists/*
 }
 
-validate_gosu() {
-  gosu nobody true
-}
-
-setup_steam_user() {
-  addgroup --system steam
-  adduser --system --home /home/steam --shell /bin/bash steam
-  usermod -aG steam steam
-}
-
+# Xvfb needs a world-writable /tmp/.X11-unix for its socket, and Steam expects
+# a private XDG_RUNTIME_DIR.
 setup_permissions() {
   mkdir -p /tmp/dumps /tmp/runtime-steam /tmp/.X11-unix
   chmod ugo+rw /tmp/dumps
@@ -79,11 +65,7 @@ setup_permissions() {
 }
 
 main() {
-  setup_timezone
-  cleanup_existing_user
   install_packages
-  validate_gosu
-  setup_steam_user
   setup_permissions
 }
 

@@ -2,13 +2,17 @@
 
 Welcome to the ultimate Enshrouded Server toolkit! This guide details how to deploy and configure your server, with all settings—including game parameters—now fully overridable via environment variables.
 
+## Migration Notice
+
+> This project now supports Proton only. The Wine target was removed because it failed a cold-volume first-boot validation; it never reached a healthy `/ready` state after install. If you were previously using a Wine-based image or a tag that references `wine`, update to `mbround18/enshrouded-docker:proton-latest` and use a fresh volume or a newly provisioned host path. See [docs/migration-notice.md](./docs/migration-notice.md) for the migration steps.
+
 ---
 
 ## Table of Contents
 
+- [Migration Notice](#migration-notice)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
-  - [Proton or Wine?](#proton-or-wine)
   - [Option A: One-off `docker run`](#option-a-one-off-docker-run)
   - [Option B: Docker Compose (recommended)](#option-b-docker-compose-recommended)
 - [Environment Variables](#environment-variables)
@@ -26,7 +30,7 @@ Welcome to the ultimate Enshrouded Server toolkit! This guide details how to dep
 ## Prerequisites
 
 - **Docker** — [install guide](https://docs.docker.com/engine/install/) if you're new to it. Docker Compose ships with it (`docker compose`, no hyphen) on any recent install.
-- **Linux kernel 6.14+ with the `ntsync` driver loaded** (`lsmod | grep ntsync`, device present at `/dev/ntsync`) — recommended for smoother startup. Without it, Wine/Proton fall back to `fsync` for NT synchronization primitives, which is markedly less stable during the server's multithreaded startup and can crash before Steamworks finishes initializing. If your host doesn't have it (or you're not sure), just drop the `devices:` block from whichever compose example below you use — the server still runs, just less reliably at startup.
+- **Linux kernel 6.14+ with the `ntsync` driver loaded** (`lsmod | grep ntsync`, device present at `/dev/ntsync`) — recommended for smoother Proton startup. Without it, Proton falls back to `fsync` for NT synchronization primitives, which is markedly less stable during the server's multithreaded startup and can crash before Steamworks finishes initializing. If your host doesn't have it (or you're not sure), just drop the `devices:` block from whichever compose example below you use — the server still runs, just less reliably at startup.
 
 ---
 
@@ -39,18 +43,14 @@ Welcome to the ultimate Enshrouded Server toolkit! This guide details how to dep
 > from source). Don't use it to run your server; use one of the two options
 > below instead.
 
-### Proton or Wine?
+### Runtime
 
-This project publishes two image variants that run the Windows server binary
-on Linux through a different compatibility layer. Functionally they're the
-same server — pick one:
+This project publishes the Proton image only. It is the only runtime we have
+validated on a cold volume and confirmed reaches a healthy `/ready` state.
 
-| Image tag                             | Runtime  | Notes                                                              |
-| -------------------------------------- | -------- | ------------------------------------------------------------------- |
-| `mbround18/enshrouded-docker:proton-latest` | Proton   | Steam's own compatibility layer. **Recommended default.**          |
-| `mbround18/enshrouded-docker:wine-latest`   | Wine     | Good fallback if Proton gives you trouble on your host.            |
-
-If in doubt, use `proton-latest`.
+| Image tag                             | Runtime | Notes |
+| -------------------------------------- | ------- | ----- |
+| `mbround18/enshrouded-docker:proton-latest` | Proton | Supported and validated. Use this image for production. |
 
 ### Option A: One-off `docker run`
 
@@ -90,6 +90,7 @@ services:
       NAME: "My Enshrouded Server"
       SET_GROUP_ADMIN_PASSWORD: "change-me"
       SET_GROUP_GUEST_PASSWORD: "change-me-too"
+      LAUNCH_MODE: "proton"
     ports:
       - "15636:15636/tcp"
       - "15636:15636/udp"
@@ -226,7 +227,8 @@ omit just uses its default.
 ```yaml
 services:
   enshrouded:
-    image: mbround18/enshrouded-docker:proton-latest # or :wine-latest
+    image: mbround18/enshrouded-docker:proton-latest
+    # Proton is the only supported runtime for this project.
     stop_grace_period: 120s
     environment:
       TZ: "America/Los_Angeles"
