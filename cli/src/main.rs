@@ -297,7 +297,7 @@ async fn main() {
                         let inst = instance_clone_inner.lock().await;
                         if inst.update_available() {
                             warn!("Update available! Stopping server...");
-                            if let Err(e) = inst.stop() {
+                            if let Err(e) = utils::shutdown::stop_server() {
                                 error!("Failed to stop server: {}", e);
                                 return;
                             }
@@ -330,7 +330,7 @@ async fn main() {
                     tokio::spawn(async move {
                         let inst = instance_clone_inner.lock().await;
                         warn!("Restarting server...");
-                        if let Err(e) = inst.stop() {
+                        if let Err(e) = utils::shutdown::stop_server() {
                             error!("Failed to stop server: {}", e);
                             return;
                         }
@@ -365,10 +365,8 @@ async fn main() {
             }
 
             warn!("Stopping Enshrouded server...");
-            debug!("Acquiring lock to stop the server...");
 
-            let inst = instance.lock().await;
-            match inst.stop() {
+            match utils::shutdown::stop_server() {
                 Err(e) => {
                     error!("Failed to stop: {}", e);
                 }
@@ -385,7 +383,7 @@ async fn main() {
             warn!("Restarting Enshrouded server...");
             debug!("Acquiring lock to restart the server...");
             let inst = instance.lock().await;
-            if let Err(e) = inst.stop() {
+            if let Err(e) = utils::shutdown::stop_server() {
                 error!("Failed to stop server: {}", e);
             } else if let Err(e) = start_server_via_runtime(&inst.config) {
                 error!("Failed to restart server: {}", e);

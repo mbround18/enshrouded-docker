@@ -21,6 +21,7 @@ reqwest = { version = "0.13", features = [
   "json",
   "rustls",
 ] }
+nix = { version = "0.31", features = ["signal"] }
 
 # Replace the path dependencies with git dependencies pointing to the monorepo
 gsm-instance = { git = "https://github.com/mbround18/game-server-management.git", package = "gsm-instance", branch = "main" }

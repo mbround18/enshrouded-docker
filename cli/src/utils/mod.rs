@@ -5,5 +5,6 @@ pub mod health;
 pub mod http;
 pub mod retry;
 pub mod setup;
+pub mod shutdown;
 
 pub use extract_player_name::*;

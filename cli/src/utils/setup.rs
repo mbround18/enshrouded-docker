@@ -258,10 +258,9 @@ pub fn get_proton_executable() -> Result<PathBuf, Box<dyn std::error::Error>> {
 /// `Instance::stop()` (gsm-instance) would find it and SIGINT that pid
 /// directly -- which only hits the Proton wrapper and never reaches the
 /// actual game process, so it gets no chance to save before the container's
-/// stop grace period expires and it's SIGKILLed. Leaving the pid file absent
-/// makes `stop()` fall through to its name-based fallback
-/// (`shutdown::blocking_shutdown`), which finds the real
-/// `enshrouded_server.exe` process and signals -- and waits on -- that one.
+/// stop grace period expires and it's SIGKILLed. `shutdown::stop_server`
+/// finds the real `enshrouded_server.exe` process and signals -- and waits
+/// on -- that one instead.
 pub fn spawn_server(
     proton_path: &Path,
     server_exe: &Path,
