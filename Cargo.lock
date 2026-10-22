@@ -484,6 +484,7 @@ dependencies = [
  "gsm-notifications",
  "gsm-shared",
  "lazy_static",
+ "nix",
  "regex",
  "reqwest",
  "serde",
