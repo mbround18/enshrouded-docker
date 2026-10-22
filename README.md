@@ -168,9 +168,9 @@ The in-game configuration parameters are now env configurable. Use environment v
 | `FOOD_BUFF_DURATION_FACTOR`            | float  | `1.0`                  | `1.3`            |
 | `FROM_HUNGER_TO_STARVING`              | int    | `600000000000`         | `500000000000`   |
 | `SHROUD_TIME_FACTOR`                   | float  | `1.0`                  | `1.1`            |
-| `TOMBSTONE_MODE`                       | string | `AddBackpackMaterials` | `KeepItems`      |
+| `TOMBSTONE_MODE`                       | string | `AddBackpackMaterials` | `Everything`     |
 | `ENABLE_GLIDER_TURBULENCES`            | bool   | `true`                 | `false`          |
-| `WEATHER_FREQUENCY`                    | string | `Normal`               | `Frequent`       |
+| `WEATHER_FREQUENCY`                    | string | `Normal`               | `Often`          |
 | `MINING_DAMAGE_FACTOR`                 | float  | `1.0`                  | `1.5`            |
 | `PLANT_GROWTH_SPEED_FACTOR`            | float  | `1.0`                  | `0.8`            |
 | `RESOURCE_DROP_STACK_AMOUNT_FACTOR`    | float  | `1.0`                  | `1.2`            |
@@ -180,8 +180,8 @@ The in-game configuration parameters are now env configurable. Use environment v
 | `EXPERIENCE_COMBAT_FACTOR`             | float  | `1.0`                  | `1.2`            |
 | `EXPERIENCE_MINING_FACTOR`             | float  | `1.0`                  | `1.1`            |
 | `EXPERIENCE_EXPLORATION_QUESTS_FACTOR` | float  | `1.0`                  | `1.4`            |
-| `RANDOM_SPAWNER_AMOUNT`                | string | `Normal`               | `High`           |
-| `AGGRO_POOL_AMOUNT`                    | string | `Normal`               | `Large`          |
+| `RANDOM_SPAWNER_AMOUNT`                | string | `Normal`               | `Many`           |
+| `AGGRO_POOL_AMOUNT`                    | string | `Normal`               | `Many`           |
 | `ENEMY_DAMAGE_FACTOR`                  | float  | `1.0`                  | `1.2`            |
 | `ENEMY_HEALTH_FACTOR`                  | float  | `1.0`                  | `1.3`            |
 | `ENEMY_STAMINA_FACTOR`                 | float  | `1.0`                  | `1.0`            |
@@ -190,7 +190,7 @@ The in-game configuration parameters are now env configurable. Use environment v
 | `BOSS_HEALTH_FACTOR`                   | float  | `1.0`                  | `2.0`            |
 | `THREAT_BONUS`                         | float  | `1.0`                  | `1.2`            |
 | `PACIFY_ALL_ENEMIES`                   | bool   | `false`                | `true`           |
-| `TAMING_STARTLE_REPERCUSSION`           | string | `LoseSomeProgress`     | `NoPenalty`      |
+| `TAMING_STARTLE_REPERCUSSION`           | string | `LoseSomeProgress`     | `KeepProgress`   |
 | `DAY_TIME_DURATION`                    | int    | `1800000000000`        | `1500000000000`  |
 | `NIGHT_TIME_DURATION`                  | int    | `720000000000`         | `600000000000`   |
 | `CURSE_MODIFIER`                       | string | `Normal`               | `Hard`           |
