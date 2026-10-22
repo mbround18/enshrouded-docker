@@ -171,7 +171,7 @@ async fn main() {
             info!("Installing Enshrouded server to: {:?}", path);
             debug!("Acquiring lock for installation...");
             let inst = instance.lock().await;
-            if let Err(e) = inst.install() {
+            if let Err(e) = utils::retry::steamcmd("Install", || inst.install()) {
                 error!("Installation failed: {}", e);
             } else {
                 debug!("Installation successful.");
@@ -284,7 +284,7 @@ async fn main() {
                                 return;
                             }
                             info!("Updating server...");
-                            if let Err(e) = inst.update() {
+                            if let Err(e) = utils::retry::steamcmd("Update", || inst.update()) {
                                 error!("Update failed: {}", e);
                                 return;
                             }
@@ -391,7 +391,7 @@ async fn main() {
                 info!("Checking for updates without enforcing check flag...");
                 if inst.update_available() {
                     warn!("Update available! Updating...");
-                    if let Err(e) = inst.update() {
+                    if let Err(e) = utils::retry::steamcmd("Update", || inst.update()) {
                         error!("Update failed: {}", e);
                     } else {
                         debug!("Update applied successfully.");
