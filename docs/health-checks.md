@@ -1,5 +1,7 @@
 # Health Checks, Liveness & Readiness
 
+> Runtime support: this project currently supports Proton only. The Wine target was removed because it failed the cold-volume install path; if you were on an older Wine-based tag, migrate to `mbround18/enshrouded-docker:proton-latest` and re-provision the data volume. See [migration-notice.md](./migration-notice.md).
+
 The `monitor` process that runs alongside your server exposes a small HTTP API
 so Docker, Kubernetes, or your own monitoring can tell whether the server is
 up and whether it's ready for players.

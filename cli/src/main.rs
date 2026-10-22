@@ -106,21 +106,31 @@ async fn main() {
         debug!("Config load or creation completed.");
     }
 
-    // Launches the server via Proton. Used by every code path that starts the
-    // server (not just the `start` subcommand) so that `restart`, the
-    // scheduled-restart job, and the post-update restart all agree on how to
-    // launch it — `Instance::start()`/`restart()` from gsm-instance only know
-    // how to launch via wine64 directly, which isn't on PATH on the
-    // proton image.
-    fn start_server_via_proton(config: &InstanceConfig) -> Result<(), Box<dyn std::error::Error>> {
+    // Launches the server with the supported compatibility layer.
+    // Wine is intentionally unsupported in this project: the upstream Wine base
+    // fails during the first-boot install path and never reaches a healthy
+    // post-install state.
+    fn start_server_via_runtime(config: &InstanceConfig) -> Result<(), Box<dyn std::error::Error>> {
         setup_configuration(&config.working_dir);
-
-        utils::setup::setup_proton_env()?;
         utils::setup::create_steam_appid(&config.working_dir, 2278520)?;
 
-        let proton_path = utils::setup::get_proton_executable()?;
         let server_exe = config.working_dir.join("enshrouded_server.exe");
-        utils::setup::spawn_server(&proton_path, &server_exe, config)
+        match config.launch_mode {
+            LaunchMode::Wine => Err("Wine runtime is not supported in this project; use the Proton image or omit LAUNCH_MODE. The Wine base fails the cold-install path before the server reaches ready state.".into()),
+            LaunchMode::Proton => {
+                utils::setup::setup_proton_env()?;
+                let proton_path = utils::setup::get_proton_executable()?;
+                utils::setup::spawn_server(&proton_path, &server_exe, config)
+            }
+            LaunchMode::Native => {
+                let mut cmd = std::process::Command::new(&server_exe);
+                cmd.current_dir(&config.working_dir);
+                let stdout = std::fs::File::create(config.stdout())?;
+                let stderr = std::fs::File::create(config.stderr())?;
+                cmd.stdout(stdout).stderr(stderr).spawn()?;
+                Ok(())
+            }
+        }
     }
 
     // Set the TZ environment variable to your desired timezone.
@@ -130,6 +140,16 @@ async fn main() {
     }
 
     let cli = Cli::parse();
+    let launch_mode = env::var("LAUNCH_MODE")
+        .ok()
+        .and_then(|value| match value.trim().to_ascii_lowercase().as_str() {
+            "native" => Some(LaunchMode::Native),
+            "wine" => Some(LaunchMode::Wine),
+            "proton" => Some(LaunchMode::Proton),
+            _ => None,
+        })
+        .unwrap_or(LaunchMode::Proton);
+
     let instance_config = InstanceConfig {
         app_id: 2278520, // Enshrouded Steam App ID
         name: name(),
@@ -138,11 +158,9 @@ async fn main() {
         launch_args: vec![],
         force_windows: true,
         working_dir: PathBuf::from("/home/steam/enshrouded"),
-        // Describes how gsm would launch the server itself. We don't let it:
-        // every start here goes through `start_server_via_proton` below, for
-        // the reasons in its comment. Declared truthfully anyway so the two
-        // don't disagree if that ever changes.
-        launch_mode: LaunchMode::Proton,
+        // This runtime is configured by the container image and can be set to
+        // `wine` for the wine stage or left as `proton` for the default image.
+        launch_mode,
         skip_validate: false,
     };
     debug!("Instance configuration set: {:?}", instance_config);
@@ -182,7 +200,7 @@ async fn main() {
         Commands::Start => {
             info!("Starting server with Proton...");
             let inst = instance.lock().await;
-            if let Err(e) = start_server_via_proton(&inst.config) {
+            if let Err(e) = start_server_via_runtime(&inst.config) {
                 error!("Failed to start server: {}", e);
                 exit(1);
             }
@@ -289,7 +307,7 @@ async fn main() {
                                 return;
                             }
                             info!("Restarting server...");
-                            if let Err(e) = start_server_via_proton(&inst.config) {
+                            if let Err(e) = start_server_via_runtime(&inst.config) {
                                 error!("Failed to start server: {}", e);
                             }
                         } else {
@@ -316,7 +334,7 @@ async fn main() {
                             error!("Failed to stop server: {}", e);
                             return;
                         }
-                        if let Err(e) = start_server_via_proton(&inst.config) {
+                        if let Err(e) = start_server_via_runtime(&inst.config) {
                             error!("Failed to restart server: {}", e);
                         }
                     });
@@ -369,7 +387,7 @@ async fn main() {
             let inst = instance.lock().await;
             if let Err(e) = inst.stop() {
                 error!("Failed to stop server: {}", e);
-            } else if let Err(e) = start_server_via_proton(&inst.config) {
+            } else if let Err(e) = start_server_via_runtime(&inst.config) {
                 error!("Failed to restart server: {}", e);
             } else {
                 debug!("Server restarted successfully.");
