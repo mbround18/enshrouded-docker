@@ -1,5 +1,5 @@
 # Build arguments
-ARG RUST_VERSION=1.99.1
+ARG RUST_VERSION=1.100.0
 # Published base images from github.com/mbround18/steamcmd-bases. They own
 # steamcmd, the `steam` user, Wine, the Proton-GE install and the Xvfb/prefix
 # initialization that has to happen before Proton is ever invoked.
